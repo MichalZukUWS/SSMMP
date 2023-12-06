@@ -355,7 +355,7 @@ public class AgentToManagerConnectionThread extends Thread {
                 break;
 
               case "health_control_response":
-                // TODO:
+                // TODO
                 break;
               default:
                 System.out.println("Manager -> Unknown request: " + requestFromQueue);
@@ -380,7 +380,7 @@ public class AgentToManagerConnectionThread extends Thread {
 
   private int getServicePort(String typeOfService) {
     switch (typeOfService) {
-      // TODO: change to latest used service/least used service
+      // TODO change to latest used service/least used service
       case "Service1":
         return service1Connections.getPort();
 

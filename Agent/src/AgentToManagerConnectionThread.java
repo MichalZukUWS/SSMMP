@@ -227,10 +227,13 @@ public class AgentToManagerConnectionThread extends Thread {
                   System.out.println("Agent -> Sends data to Manager: " + dataObject.getMessage());
                   writerToManager.flush();
                   break;
-
-                // TODO: przenieść zapytanie o stan do innego wątku
                 case "health_control_response":
-                  // jeżeli kod statusu zły do managera
+                  if (Integer.parseInt(decodedData[5].split(":")[1]) >= 300) {
+                    dataString = dataObject.getMessage().replace("service_to_agent", "agent_to_Manager");
+                    System.out.println("Agent -> Sends data to Manager: " + dataString);
+                    writerToManager.println(dataString);
+                    writerToManager.flush();
+                  }
                   break;
                 default:
                   break;

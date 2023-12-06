@@ -10,8 +10,16 @@ import java.util.LinkedList;
 
 public class App {
     public static void main(String[] args) throws UnknownHostException, IOException {
-        // new TestServer();
-        // Socket socket = new Socket("localhost", 15000);
+        new TestServer();
+        Socket socket = new Socket("localhost", 15000);
+        // String data = "something:foo\nwith:new\nline:boo";
+        // PrintWriter writer = new PrintWriter(socket.getOutputStream());
+        // writer.println(data);
+        // writer.flush();
+        // String newdata = "something:new\nwith:lines\nline:foo";
+        // writer.println(newdata);
+        // writer.flush();
+        socket.close();
         // try {
         // // ArrayList<String> arguments = new ArrayList<>(3);
         // // arguments.add("cmd.exe");
@@ -65,15 +73,15 @@ public class App {
         // System.out.println(list.pop());
         // System.out.println(list.pop());
 
-        Date date = new Date();
-        System.out.println("toString: " + date);
-        System.out.println("getTime: " + date.getTime());
-        LocalDateTime localDateTime = LocalDateTime.now();
-        System.out.println("localDateTime.now(): " + LocalDateTime.now());
-        System.out
-                .println(
-                        "localDateTime.format(): "
-                                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("d-M-y H:m:s")));
-        System.out.println("localDateTime.getHour(): " + localDateTime.getHour());
+        // Date date = new Date();
+        // System.out.println("toString: " + date);
+        // System.out.println("getTime: " + date.getTime());
+        // LocalDateTime localDateTime = LocalDateTime.now();
+        // System.out.println("localDateTime.now(): " + LocalDateTime.now());
+        // System.out
+        // .println(
+        // "localDateTime.format(): "
+        // + LocalDateTime.now().format(DateTimeFormatter.ofPattern("d-M-y H:m:s")));
+        // System.out.println("localDateTime.getHour(): " + localDateTime.getHour());
     }
 }

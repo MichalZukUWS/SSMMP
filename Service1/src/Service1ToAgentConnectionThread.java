@@ -70,9 +70,16 @@ public class Service1ToAgentConnectionThread extends Thread {
                 try {
                     String responseFromAgent = readerFromAgent.readLine();
                     System.out.println("Service1 -> From the agent received: " + responseFromAgent);
-                    synchronized (responses) {
-                        responses.add(responseFromAgent);
-                        responses.notify();
+                    if (!responseFromAgent.split(";")[0].split(":")[1].equalsIgnoreCase("health_control_request")) {
+                        synchronized (responses) {
+                            responses.add(responseFromAgent);
+                            responses.notify();
+                        }
+                    } else {
+                        // TODO replace serviceInstance
+                        // TODO actually check the status of the service
+                        String healthResponse = "type:health_control_response;message_id:10;sub_type:service_instance_to_agent;service_name:Service1;service_instance_id:i;status:200";
+                        addRequestToAgent(healthResponse);
                     }
                 } catch (IOException e) {
                     System.out.println("Service1 Exception: " + e.getMessage());

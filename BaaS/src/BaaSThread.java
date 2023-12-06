@@ -58,8 +58,8 @@ public class BaaSThread extends Thread {
         }
 
         // Service1/2 -> source, BaaS -> dest
-        // TODO: what about message_id?
-        // TODO: 123 -> Service1/2 port
+        // TODO what about message_id?
+        // TODO 123 -> Service1/2 port
         String dataToAgent = "type:dest_service_session_close_info;message_id:" + 10
                 + ";sub_type:dest_service_to_agent;source_service_instance_network_address:localhost_" + 123
                 + ";source_plug_name:P;source_plug_port:" + 123

@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 
+// TODO add a mechanism responsible for service activity
 public class Service1History {
     private int port;
     private ArrayList<String> history;

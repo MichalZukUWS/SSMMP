@@ -10,7 +10,7 @@ public class Manager {
         System.out.println("Manager port: " + startPort);
         while (true) {
             Socket socket = serverSocket.accept();
-            new AgentToManagerConnectionThread(socket, startPort + 1020);
+            new AgentToManagerConnectionThread(socket, startPort + 25);
         }
     }
 }

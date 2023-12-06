@@ -138,8 +138,8 @@ public class Service1Thread extends Thread {
         }
 
         // Api Gateway -> source, Service1 -> dest
-        // TODO: what about message_id?
-        // TODO: 123 -> Api Gateway port
+        // TODO what about message_id?
+        // TODO 123 -> Api Gateway port
         String dataToAgent = "type:dest_service_session_close_info;message_id:" + 10
                 + ";sub_type:dest_service_to_agent;source_service_instance_network_address:localhost_" + 123
                 + ";source_plug_name:P;source_plug_port:" + 123
@@ -157,7 +157,7 @@ public class Service1Thread extends Thread {
         }
 
         // Service1 -> source, BaaS -> dest
-        // TODO: what about message_id?
+        // TODO what about message_id?
         dataToAgent = "type:source_service_session_close_info;message_id"
                 + 10
                 + ";sub_type:source_service_to_agent;source_service_name:Api Gateway;source_service_instance_network_address:localhost_"
