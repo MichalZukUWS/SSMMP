@@ -34,6 +34,7 @@ public class ApiGatewayToAgentConnectionThread extends Thread {
     @Override
     public void run() {
 
+        // request about registration Api Gateway in Manager
         String initialData = "type:connection_request;message_id:20;socket_configuration:localhost_" + 34100
                 + ";status:200";
 
@@ -42,6 +43,7 @@ public class ApiGatewayToAgentConnectionThread extends Thread {
         writerToAgent.println(initialData);
         writerToAgent.flush();
 
+        // Thread to process request to Agent
         Thread processQueue = new Thread(() -> {
             while (!isInterrupted()) {
                 synchronized (requests) {
@@ -56,6 +58,7 @@ public class ApiGatewayToAgentConnectionThread extends Thread {
 
         });
 
+        // Thread to process request or responses from Agent
         Thread processResponses = new Thread(() -> {
             while (!isInterrupted()) {
                 try {
@@ -63,16 +66,20 @@ public class ApiGatewayToAgentConnectionThread extends Thread {
                         String responseFromAgent = readerFromAgent.readLine();
                         System.out
                                 .println("Api Gateway -> Received response from agent: " + responseFromAgent);
+                        // if request/response isn't about health controll add to reponses list
                         if (!responseFromAgent.split(";")[0].split(":")[1].equalsIgnoreCase("health_control_request")) {
                             synchronized (responses) {
                                 responses.add(responseFromAgent);
                                 responses.notify();
                             }
 
-                        } else {
-                            // TODO replace serviceInstance
-                            // TODO actually check the status of the service
-                            String healthResponse = "type:health_control_response;message_id:10;sub_type:service_instance_to_agent;service_name:Api Gateway;service_instance_id:i;status:200";
+                        }
+                        // check health about Api Gateway
+                        else {
+                            // TODO:: actually check the status of the service
+                            String healthResponse = "type:health_control_response;message_id:"
+                                    + responseFromAgent.split(";")[1].split(":")[1]
+                                    + ";sub_type:service_instance_to_agent;service_name:Api Gateway;service_instance_id:10;status:200";
                             addRequestToAgent(healthResponse);
                         }
                     }

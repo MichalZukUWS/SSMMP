@@ -23,7 +23,8 @@ public class AgentToManagerConnectionThread extends Thread {
   private int serviceInstance;
   private ArrayList<RequestForStartService> requestsForStartServiceList;
 
-  public AgentToManagerConnectionThread(Socket socketToAgent, int portForService) throws IOException {
+  public AgentToManagerConnectionThread(Socket socketToAgent, int portForService, LinkedList<String> requests)
+      throws IOException {
     this.socketFromAgent = socketToAgent;
     writerToAgent = new PrintWriter(this.socketFromAgent.getOutputStream());
     readerFromAgent = new BufferedReader(new InputStreamReader(this.socketFromAgent.getInputStream()));
@@ -34,19 +35,21 @@ public class AgentToManagerConnectionThread extends Thread {
     agentPort = 0;
     serviceInstance = 0;
     this.portForService = portForService;
-    requests = new LinkedList<>();
+    this.requests = requests;
     requestsForStartServiceList = new ArrayList<>();
     start();
   }
 
+  // function using for getting current date and time
   private String getDateTimeNowString() {
     return LocalDateTime.now()
-        .format(DateTimeFormatter.ofPattern("d-M-y H:m:s"));
+        .format(DateTimeFormatter.ofPattern("d-MM-y H:m:s"));
   }
 
   @Override
   public void run() {
-
+    new ManagerCheckServicesActivityThread(service1Connections, service2Connections, baaSConnections, requests);
+    // process for reading agent request/responses
     Thread readerBufferThread = new Thread(() -> {
       while (!isInterrupted()) {
         try {
@@ -69,6 +72,7 @@ public class AgentToManagerConnectionThread extends Thread {
       }
 
     });
+    // Thread for processing request/responses
     Thread processQueue = new Thread(() -> {
       while (!isInterrupted()) {
         synchronized (requests) {
@@ -78,6 +82,7 @@ public class AgentToManagerConnectionThread extends Thread {
             String[] decodedData = requestFromQueue.split(";");
 
             switch (decodedData[0].split(":")[1]) {
+              // Agent is registering to Manager
               case "initiation_request":
                 dataToSend = "type:initiation_response;" + decodedData[1]
                     + ";status:200";
@@ -88,9 +93,11 @@ public class AgentToManagerConnectionThread extends Thread {
                 System.out.println("Manager -> Accepted the Agent's registration and sent back a reply");
                 break;
 
+              // Agent started new process with Service
               case "execution_response":
+                // TODO: check status and process if Service didn't start
                 System.out.println(
-                    "Manager -> Received service launch and registration data, retrieve data");
+                    "Manager -> Received Service launch and registration data, retrieve data");
                 RequestForStartService element = requestsForStartServiceList.stream()
                     .filter(request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))
                     .findFirst().orElse(null);
@@ -107,20 +114,23 @@ public class AgentToManagerConnectionThread extends Thread {
                     baaSConnections.addPort(element.getPortOfService());
                     break;
                   default:
-                    System.out.println("Manager -> Unknown service in requestsForStartService list");
+                    System.out.println("Manager -> Unknown Service in requestsForStartService list");
                     break;
                 }
 
                 System.out.println(
-                    "Manager -> Received data on the launch and registration of the service, I delete the entry");
+                    "Manager -> Received data on the launch and registration of the Service, I delete the entry");
                 requestsForStartServiceList = requestsForStartServiceList.stream()
                     .filter(request -> request.getMessageID() != Integer.parseInt(decodedData[1].split(":")[1]))
                     .collect(Collectors.toCollection(ArrayList::new));
                 break;
 
+              // Service wants to connect to another Service
               case "session_request":
                 String typeOfService = decodedData[6].split(":")[1];
                 String message_id = decodedData[1];
+                // Service1, Service2, and BaaS is used in developing stage for testing
+                // switch for process connection to specific Service
                 switch (typeOfService) {
                   case "Service1":
                     // Service1 isn't running
@@ -131,21 +141,22 @@ public class AgentToManagerConnectionThread extends Thread {
                           "Manager -> Accepted request to connect to Service1, Service1 is not running");
                       serviceInstance++;
                       // getting port for new instance
-                      int portForService = getNextPortForService();
+                      int portForS = getNextPortForService();
                       // adding entry to Service1 history
-                      service1Connections.addNewConnection(new Service1History(portForService));
-                      service1Connections.addHistoryByPort(portForService,
+                      service1Connections.addNewConnection(new Service1History(portForS, serviceInstance));
+                      service1Connections.updateLastUsedService(serviceInstance);
+                      service1Connections.addHistoryByPort(portForS,
                           "Request for Service1, starting Service1 at: "
                               + getDateTimeNowString());
-                      service1Connections.printHistoryByPort(portForService);
+                      service1Connections.printHistoryByPort(portForS);
                       // list that contains informations about request
                       requestsForStartServiceList.add(new RequestForStartService(
-                          Integer.parseInt(decodedData[1].split(":")[1]), portForService, typeOfService));
+                          Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
                       dataToSend = "type:execution_request;" + decodedData[1]
-                          + ";agent_newtork_address:localhost_" + agentPort + ";service_name:"
+                          + ";agent_newtork_address:localhost_" + agentPort + ";Service_name:"
                           + typeOfService
-                          + ";service_instance:" + serviceInstance
-                          + ";socket_configuration:localhost_" + portForService
+                          + ";Service_instance:" + serviceInstance
+                          + ";socket_configuration:localhost_" + portForS
                           + ";plug_configuration:configuration of plugs";
                       writerToAgent.println(dataToSend);
                       writerToAgent.flush();
@@ -156,9 +167,6 @@ public class AgentToManagerConnectionThread extends Thread {
                     } else if (service1Connections.getNumberOfServices() != 0
                         && requestsForStartServiceList.stream().anyMatch(
                             request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
-                      // System.out.println(
-                      // "Manager -> Accepted a request to connect to Service1, Service1 is starting
-                      // up");
                       requests.add(requestFromQueue);
                       requests.notify();
                       // Service1 started and is ready to connect
@@ -167,7 +175,7 @@ public class AgentToManagerConnectionThread extends Thread {
                             request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
                       System.out.println("Manager -> Accepted request to connect to Service1, sends back data");
                       dataToSend = "type:session_response;" + message_id
-                          + ";sub_type:Manager_to_agent;status:200;dest_service_instance_network_address:localhost_"
+                          + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
                           + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
                       writerToAgent.println(dataToSend.replace("agent_to_Manager", "Manager_to_agent"));
                       writerToAgent.flush();
@@ -182,14 +190,14 @@ public class AgentToManagerConnectionThread extends Thread {
                       System.out.println(
                           "Manager -> Accepted request to connect to Service2, Service2 is not running");
                       serviceInstance++;
-                      int portForService = getNextPortForService();
+                      int portForS = getNextPortForService();
                       requestsForStartServiceList.add(new RequestForStartService(
-                          Integer.parseInt(decodedData[1].split(":")[1]), portForService, typeOfService));
+                          Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
                       dataToSend = "type:execution_request;" + decodedData[1]
-                          + ";agent_newtork_address:localhost_" + agentPort + ";service_name:"
+                          + ";agent_newtork_address:localhost_" + agentPort + ";Service_name:"
                           + typeOfService
-                          + ";service_instance:" + serviceInstance
-                          + ";socket_configuration:localhost_" + portForService
+                          + ";Service_instance:" + serviceInstance
+                          + ";socket_configuration:localhost_" + portForS
                           + ";plug_configuration:configuration of plugs";
                       writerToAgent.println(dataToSend);
                       writerToAgent.flush();
@@ -198,9 +206,6 @@ public class AgentToManagerConnectionThread extends Thread {
                     } else if (service2Connections.getNumberOfServices() == 0
                         && requestsForStartServiceList.stream().anyMatch(
                             request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
-                      // System.out.println(
-                      // "Manager -> Accepted a request to connect to Service2, Service2 is starting
-                      // up");
                       requests.add(requestFromQueue);
                       requests.notify();
                     } else if (service2Connections.getNumberOfServices() != 0
@@ -208,7 +213,7 @@ public class AgentToManagerConnectionThread extends Thread {
                             request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
                       System.out.println("Manager -> Accepted request to connect to Service2, sends back data");
                       dataToSend = "type:session_response;" + message_id
-                          + ";sub_type:Manager_to_agent;status:200;dest_service_instance_network_address:localhost_"
+                          + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
                           + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
                       writerToAgent.println(dataToSend.replace("agent_to_Manager", "Manager_to_agent"));
                       writerToAgent.flush();
@@ -223,14 +228,14 @@ public class AgentToManagerConnectionThread extends Thread {
                       System.out.println(
                           "Manager -> Accepted request to connect to BaaS, BaaS is not running");
                       serviceInstance++;
-                      int portForService = getNextPortForService();
+                      int portForS = getNextPortForService();
                       requestsForStartServiceList.add(new RequestForStartService(
-                          Integer.parseInt(decodedData[1].split(":")[1]), portForService, typeOfService));
+                          Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
                       dataToSend = "type:execution_request;" + decodedData[1]
-                          + ";agent_newtork_address:localhost_" + agentPort + ";service_name:"
+                          + ";agent_newtork_address:localhost_" + agentPort + ";Service_name:"
                           + typeOfService
-                          + ";service_instance:" + serviceInstance
-                          + ";socket_configuration:localhost_" + portForService
+                          + ";Service_instance:" + serviceInstance
+                          + ";socket_configuration:localhost_" + portForS
                           + ";plug_configuration:configuration of plugs";
                       writerToAgent.println(dataToSend);
                       writerToAgent.flush();
@@ -239,8 +244,6 @@ public class AgentToManagerConnectionThread extends Thread {
                     } else if (baaSConnections.getNumberOfServices() == 0
                         && requestsForStartServiceList.stream().anyMatch(
                             request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
-                      // System.out.println(
-                      // "Manager -> Accepted a request to connect to BaaS, BaaS is starting up");
                       requests.add(requestFromQueue);
                       requests.notify();
                     } else if (baaSConnections.getNumberOfServices() != 0
@@ -248,7 +251,7 @@ public class AgentToManagerConnectionThread extends Thread {
                             request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
                       System.out.println("Manager -> Accepted request to connect to BaaS, sends back data");
                       dataToSend = "type:session_response;" + message_id
-                          + ";sub_type:Manager_to_agent;status:200;dest_service_instance_network_address:localhost_"
+                          + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
                           + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
                       writerToAgent.println(dataToSend.replace("agent_to_Manager", "Manager_to_agent"));
                       writerToAgent.flush();
@@ -257,12 +260,15 @@ public class AgentToManagerConnectionThread extends Thread {
                 }
                 break;
 
+              // request for registering Services that are running from start of application
+              // and aren't starting via Agent
               case "connection_request":
                 System.out.println("Manager -> Accepted Api Gateway Connection");
                 break;
 
+              // request for information about estabilishing connection Services
               case "session_ack":
-                System.out.println("Manager -> Accepted data on the successful connection of services.");
+                System.out.println("Manager -> Accepted data on the successful connection of Services.");
                 // source port is Service1
                 if (service1Connections.isServiceWithPort(Integer.parseInt(decodedData[4].split(":")[1]))) {
                   // BaaS is the one possible case of connection
@@ -291,11 +297,12 @@ public class AgentToManagerConnectionThread extends Thread {
                 }
                 break;
 
-              case "source_service_session_close_info":
-                // source_service_name:A
+              // source Service closed connetion with another Service
+              case "source_Service_session_close_info":
+                // source_Service_name:A
                 switch (decodedData[3].split(":")[1]) {
                   case "Api Gateway":
-                    // dest_service_name:B
+                    // dest_Service_name:B
                     switch (decodedData[8].split(":")[1]) {
                       // 1. Api Gateway -> Service1
                       case "Service1":
@@ -310,7 +317,7 @@ public class AgentToManagerConnectionThread extends Thread {
 
                       default:
                         System.out.println(
-                            "Manager -> In source service session close info is unknown destination serivce name");
+                            "Manager -> In source Service session close info is unknown destination serivce name");
                         break;
                     }
                     break;
@@ -326,13 +333,14 @@ public class AgentToManagerConnectionThread extends Thread {
                     break;
 
                   default:
-                    System.out.println("Manager -> Unknown source service session close info");
+                    System.out.println("Manager -> Unknown source Service session close info");
                     break;
                 }
                 break;
 
-              case "dest_service_session_close_info":
-                // dest_service_name:B
+              // destination Service closed connetion with another Service
+              case "dest_Service_session_close_info":
+                // dest_Service_name:B
                 switch (decodedData[6].split(":")[1]) {
                   // 1. Service1 <- Api Gateway
                   case "Service1":
@@ -349,13 +357,43 @@ public class AgentToManagerConnectionThread extends Thread {
                     break;
                   default:
                     System.out
-                        .println("Manager -> In dest service session close info is unknown destination serivce name");
+                        .println("Manager -> In dest Service session close info is unknown destination serivce name");
                     break;
                 }
                 break;
 
+              // Service isn't working correctly and needs to be closed
               case "health_control_response":
-                // TODO
+                // TODO:
+                break;
+              case "process_data":
+                switch (decodedData[3].split(":")[1]) {
+                  case "Service1":
+                    System.out
+                        .println(
+                            "Manager -> I got data about that Service1 is processing data, updating lastUsedDateTime");
+                    int serviceI = Integer.parseInt(decodedData[4].split(":")[1]);
+                    service1Connections.updateLastUsedService(serviceI);
+                    service1Connections.addHistoryByServiceInstance(serviceI,
+                        "Service1 processed data at: " + getDateTimeNowString());
+                    service1Connections.printHistoryByServiceInstance(serviceI);
+                    break;
+                  case "Service2":
+                    break;
+                  case "BaaS":
+                    break;
+                  default:
+                    System.out.println(
+                        "Manager -> Request for data processing comes from an unknown service: " + requestFromQueue);
+                    break;
+                }
+                break;
+              case "graceful_shutdown_request":
+                writerToAgent.println(requestFromQueue);
+                writerToAgent.flush();
+                break;
+              case "graceful_shutdown_response":
+                // TODO: remove here from service1History not when request is sended
                 break;
               default:
                 System.out.println("Manager -> Unknown request: " + requestFromQueue);
@@ -373,17 +411,18 @@ public class AgentToManagerConnectionThread extends Thread {
       }
     });
 
-    System.out.println("Manager ->  Starting a thread for receiving data and processing the queue");
+    System.out.println("Manager -> Starting a thread for receiving data and processing the queue");
     readerBufferThread.start();
     processQueue.start();
   }
 
+  // function for getting port to Service
   private int getServicePort(String typeOfService) {
     switch (typeOfService) {
-      // TODO change to latest used service/least used service
       case "Service1":
         return service1Connections.getPort();
 
+      // TODO: change to latest used Service/least used Service
       case "Service2":
         return service2Connections.getPorts()
             .get(0);
@@ -396,6 +435,7 @@ public class AgentToManagerConnectionThread extends Thread {
     }
   }
 
+  // function that's return next free port for new Service process
   private int getNextPortForService() {
     if (service1Connections.getNumberOfServices() == 0 && service2Connections.getNumberOfServices() == 0
         && baaSConnections.getNumberOfServices() == 0) {
@@ -404,7 +444,7 @@ public class AgentToManagerConnectionThread extends Thread {
       return returnedPort;
     } else {
       int maxPort = -1;
-      int[] tabOfPorts = new int[3];
+      int[] tabOfPorts = new int[4];
       if (service1Connections.getNumberOfServices() != 0)
         tabOfPorts[0] = service1Connections.getMaxPort();
       else
@@ -417,6 +457,7 @@ public class AgentToManagerConnectionThread extends Thread {
         tabOfPorts[2] = baaSConnections.getPorts().get(baaSConnections.getNumberOfServices() - 1);
       else
         tabOfPorts[2] = -1;
+      tabOfPorts[3] = portForService;
       for (int i = 0; i < tabOfPorts.length; i++) {
         if (tabOfPorts[i] > maxPort)
           maxPort = tabOfPorts[i];

@@ -25,6 +25,7 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
     private String firstData;
     private int apiGatewayPort;
     private int servicePort;
+    private Thread checkConnectionWithService;
 
     public ApiGatewayToServiceConnectionThread(Socket socketFromClient,
             ApiGatewayToAgentConnectionThread apiGatewayToAgentConnectionThread,
@@ -43,8 +44,17 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
     }
 
     public void send(Socket socketFromClient, String data) throws IOException {
-        this.socketFromClient = socketFromClient;
-        writerToClient = new PrintWriter(this.socketFromClient.getOutputStream());
+        // TODO:: change to list with objects which contains data and socket to client,
+        // in
+        // this state posisible problems with high demand?
+
+        // if request is from diffrent client have to change socket and writer to client
+        if (this.socketFromClient != socketFromClient) {
+            this.socketFromClient = socketFromClient;
+            writerToClient = new PrintWriter(this.socketFromClient.getOutputStream());
+
+        }
+        // adding request to requests list
         synchronized (requests) {
             requests.add(data);
             requests.notify();
@@ -54,6 +64,9 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
     @Override
     public void run() {
         try {
+            // Establishing of connection to service
+
+            // request for informations about destination service
             String dataToAgent = "type:session_request;message_id:" + firstData.split(";")[1].split(":")[1]
                     + ";sub_type:service_to_agent;source_service_name:Api Gateway;source_service_instance_id:100;source_plug_name:P;dest_service_name:";
 
@@ -66,6 +79,7 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
             apiGatewayToAgentConnectionThread.addRequestToAgent(dataToAgent);
             String response = null;
 
+            // waiting for response
             synchronized (responses) {
                 while (responses.size() == 0) {
                     try {
@@ -79,11 +93,13 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
             }
             System.out.println("Api Gateway -> From the queue I received:" + response);
             servicePort = Integer.parseInt(response.split(";")[5].split(":")[1]);
+            // Establishing connection with destination service
             socketToService = new Socket("localhost", servicePort);
             writerToService = new PrintWriter(socketToService.getOutputStream());
             readerFromService = new BufferedReader(new InputStreamReader(socketToService.getInputStream()));
             System.out.println("Api Gateway -> Established a connection to Service");
 
+            // sending information about establishing connection
             dataToAgent = "type:session_ack;message_id:" + firstData.split(";")[1].split(":")[1]
                     + ";sub_type:service_to_agent;status:200;source_plug_port:34100;dest_socket_new_port:"
                     + servicePort;
@@ -94,37 +110,80 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
 
             apiGatewayToAgentConnectionThread.addRequestToAgent(dataToAgent);
 
+            // putting service name and thread with connection with connection to specific
+            // service into map
             synchronized (threadsWithServices) {
 
                 threadsWithServices.put(firstData.split(";")[0].split(":")[1], this);
             }
+            // creating writer to client
             writerToClient = new PrintWriter(socketFromClient.getOutputStream());
+            // adding first request to list
             synchronized (requests) {
                 requests.add(firstData);
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        while (!isInterrupted()) {
-            synchronized (requests) {
-                if (!requests.isEmpty()) {
-                    try {
-                        String data = requests.poll();
-                        requests.notify();
-                        writerToService.println(data);
-                        writerToService.flush();
-                        String dataFromService = readerFromService.readLine();
-                        writerToClient.println(dataFromService);
-                        writerToClient.flush();
-                    } catch (IOException e) {
-                        e.printStackTrace();
+        checkConnectionWithService = new Thread(() -> {
+            try {
+                while (!isInterrupted()) {
+                    synchronized (readerFromService) {
+                        readerFromService.mark(1);
+                        readerFromService.read();
+                        readerFromService.reset();
+                        readerFromService.notify();
+
                     }
                 }
-
+            } catch (IOException e) {
+                System.out.println(
+                        "Api Gateway Exception in thread which is responsible for checking connection to Service: "
+                                + e.getMessage());
+                e.printStackTrace();
+                checkConnectionWithService.interrupt();
+                interrupt();
             }
+            System.out.println("Api Gateway -> Connection with Service closed.");
+        });
+        checkConnectionWithService.start();
+        // after connection is established thread is pulling from list messages and
+        // sends forward to service
+        try {
+            while (!isInterrupted()) {
+                // pulling from list messages and sending forward to service
+                synchronized (requests) {
+                    if (!requests.isEmpty()) {
+
+                        String data = requests.poll();
+                        requests.notify();
+                        // sending to service
+                        writerToService.println(data);
+                        writerToService.flush();
+                        // retrieving response from service and sending back to client
+                        synchronized (readerFromService) {
+                            String dataFromService = readerFromService.readLine();
+                            writerToClient.println(dataFromService);
+                            writerToClient.flush();
+                            readerFromService.notify();
+                        }
+
+                    }
+
+                }
+            }
+        } catch (IOException e) {
+            System.out.println(
+                    "Api Gateway Exception in thread which is resposible for sending and receiving data from Service: "
+                            + e.getMessage());
+            e.printStackTrace();
+            interrupt();
+            checkConnectionWithService.interrupt();
         }
 
+        // closing writers, readers and sockets
         try {
             if (writerToClient != null)
                 writerToClient.close();
@@ -139,11 +198,15 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
                 socketToService.close();
 
         } catch (IOException e) {
+            System.out.println(
+                    "Api Gateway Exception with closing writers, readers and sockets: " + e.getMessage());
             e.printStackTrace();
         }
 
-        // TODO what about message_id ?
-        String dataToAgent = "type:source_service_session_close_info;message_id"
+        // sending information about closing connection
+
+        // TODO:: what about message_id ?
+        String dataToAgent = "type:source_service_session_close_info;message_id:"
                 + 10
                 + ";sub_type:source_service_to_agent;source_service_name:Api Gateway;source_service_instance_network_address:localhost_"
                 + apiGatewayPort
@@ -155,5 +218,7 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
                 + ";dest_socket_new_port:l";
 
         apiGatewayToAgentConnectionThread.addRequestToAgent(dataToAgent);
+
+        threadsWithServices.remove(nameOfService);
     }
 }

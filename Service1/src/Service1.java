@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.LinkedList;
 
 public class Service1 {
@@ -21,14 +22,15 @@ public class Service1 {
         LinkedList<String> requests = new LinkedList<>();
         LinkedList<String> responses = new LinkedList<>();
         int serviceInstance = Integer.parseInt(args.split(";")[4].split(":")[1]);
+        ArrayList<Service1Thread> threads = new ArrayList<>();
         Service1ToAgentConnectionThread serviceToAgentConnectionThread = new Service1ToAgentConnectionThread(requests,
-                responses, args);
+                responses, args, threads);
         while (true) {
             Socket socket = serverSocket.accept();
 
             System.out.println("Service1 -> New connection");
-            new Service1Thread(socket, serviceToAgentConnectionThread, responses, port, serviceInstance);
-
+            new Service1Thread(socket, serviceToAgentConnectionThread, responses, port,
+                    serviceInstance, threads);
         }
     }
 }

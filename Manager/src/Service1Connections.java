@@ -1,28 +1,21 @@
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 public class Service1Connections {
-    // private ArrayList<Integer> ports;
     private int numberOfServices;
     private ArrayList<Service1History> historyList;
 
     public Service1Connections() {
         numberOfServices = 0;
         historyList = new ArrayList<>();
-        // ports = new ArrayList<>();
     }
 
     public int getNumberOfServices() {
         return numberOfServices;
     }
-
-    // public ArrayList<Integer> getPorts() {
-    // return ports;
-    // }
-
-    // public void addPort(int port) {
-    // numberOfServices++;
-    // ports.add(port);
-    // }
 
     public void addNewConnection(Service1History history) {
         numberOfServices++;
@@ -39,9 +32,49 @@ public class Service1Connections {
         return historyList.stream().anyMatch(s -> s.getPort() == port);
     }
 
+    public void updateLastUsedService(int serviceInstance) {
+        Service1History temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
+                .orElse(null);
+        if (temp != null) {
+            temp.setLastUsedDateTime(LocalDateTime.now());
+        }
+    }
+
     public int getPort() {
-        // TODO change to latest used service/least used service
-        return historyList.get(0).getPort();
+
+        // go via historyList and find that object which have latest value in
+        // lastUsedDateTime field
+        LocalDateTime temp = historyList.stream().map(k -> k.getLastUsedDateTime()).max(Comparator.naturalOrder())
+                .orElse(null);
+        if (temp != null) {
+            Service1History foo = historyList
+                    .stream()
+                    .filter(
+                            s -> s.getLastUsedDateTime().equals(temp))
+                    .findFirst()
+                    .orElse(null);
+            if (foo != null) {
+                return foo.getPort();
+            }
+        }
+
+        return -1;
+
+        // LocalDateTime maxDate = historyList.stream()
+        // .map(s -> s.getLastUsedDateTime())
+        // .max(Comparator.naturalOrder())
+        // .orElse(null);
+        // if (maxDate != null) {
+        // Service1History foo = historyList.stream().filter(s ->
+        // s.getLastUsedDateTime().equals(maxDate)).findFirst()
+        // .orElse(null);
+        // return foo.getPort();
+        // }
+        // return -1;
+    }
+
+    public ArrayList<Service1History> getHistoryList() {
+        return historyList;
     }
 
     public int getMaxPort() {
@@ -56,5 +89,27 @@ public class Service1Connections {
 
     public void printHistory() {
         historyList.stream().forEach(s -> s.printHistory());
+    }
+
+    public void addHistoryByServiceInstance(int serviceInstance, String message) {
+        Service1History temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
+                .orElse(null);
+        if (temp != null)
+            temp.addToHistory(message);
+    }
+
+    public void printHistoryByServiceInstance(int serviceInstance) {
+        Service1History temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
+                .orElse(null);
+        if (temp != null)
+            temp.printHistory();
+    }
+
+    // TODO:: change to instance
+    public void removeFromHistoryByPort(int port) {
+        historyList = historyList.stream().filter(h -> h.getPort() != port)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        numberOfServices = historyList.size();
     }
 }

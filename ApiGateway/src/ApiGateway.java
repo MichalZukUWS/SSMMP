@@ -1,6 +1,4 @@
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
@@ -22,21 +20,8 @@ public class ApiGateway {
         while (true) {
             Socket socket = serverSocket.accept();
             System.out.println("Api Gateway -> New Connection");
+            // after new connection create new Thread to process requests and responses
             new ApiGatewayThread(socket, startPort, serviceToAgentConnectionThread, responses, threadsWithServices);
-            // BufferedReader readerFromService = new BufferedReader(new
-            // InputStreamReader(socket.getInputStream()));
-            // String dataFromService = readerFromService.readLine();
-            // if
-            // (threadsWithServices.keySet().contains(dataFromService.split(";")[1].split(":")[1]))
-            // {
-            // readerFromService.close();
-            // //
-            // threadsWithServices.get(dataFromService.split(";")[1].split(":")[1]).foo();
-            // } else {
-            // readerFromService.close();
-            // new ApiGatewayThread(socket, startPort, serviceToAgentConnectionThread,
-            // responses);
-            // }
         }
     }
 }

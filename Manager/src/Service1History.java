@@ -1,13 +1,28 @@
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 
-// TODO add a mechanism responsible for service activity
 public class Service1History {
     private int port;
     private ArrayList<String> history;
+    private LocalDateTime lastUsedDateTime;
+    private int serviceInstance;
 
-    public Service1History(int port) {
+    public Service1History(int port, int serviceInstance) {
         this.port = port;
+        this.serviceInstance = serviceInstance;
         history = new ArrayList<>();
+    }
+
+    public int getServiceInstance() {
+        return serviceInstance;
+    }
+
+    public LocalDateTime getLastUsedDateTime() {
+        return lastUsedDateTime;
+    }
+
+    public void setLastUsedDateTime(LocalDateTime lastUsedDateTime) {
+        this.lastUsedDateTime = lastUsedDateTime;
     }
 
     public int getPort() {

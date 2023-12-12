@@ -1,6 +1,7 @@
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.stream.Stream;
@@ -21,6 +22,9 @@ public class TestServer extends Thread {
                 Socket socket = serverSocket.accept();
                 System.out.println("Socket localPort: " + socket.getLocalPort());
                 System.out.println("Socket port: " + socket.getPort());
+                PrintWriter w = new PrintWriter(socket.getOutputStream());
+                w.println("foo");
+                w.flush();
                 // BufferedReader reader = new BufferedReader(new
                 // InputStreamReader(socket.getInputStream()));
                 // while (true) {
@@ -37,6 +41,7 @@ public class TestServer extends Thread {
                 // }
 
                 socket.close();
+                serverSocket.close();
                 runThread = false;
             } catch (IOException e) {
                 e.printStackTrace();

@@ -46,7 +46,8 @@ public class BaaSToAgentConnectionThread extends Thread {
         // 4 -> service_instance:1;
         // 5 -> socket_configuration:localhost_34022;
         // 6 -> plug_configuration:configuration of plugss
-        String initialDataToSend = "type:execution_response;" + args.split(";")[1] + ";status:200";
+        String initialDataToSend = "type:execution_response;" + args.split(";")[1]
+                + ";socket_configuration:localhost_" + args.split(";")[5].split(":")[1].split("_")[1] + ";status:200";
         System.out.println("BaaS -> Sending registration data: " + initialDataToSend);
         writerToAgent.println(initialDataToSend);
         writerToAgent.flush();
@@ -77,8 +78,8 @@ public class BaaSToAgentConnectionThread extends Thread {
                             responses.notify();
                         }
                     } else {
-                        // TODO replace serviceInstance
-                        // TODO actually check the status of the service
+                        // TODO: replace serviceInstance
+                        // TODO: actually check the status of the service
                         String healthResponse = "type:health_control_response;message_id:10;sub_type:service_instance_to_agent;service_name:BaaS;service_instance_id:i;status:200";
                         addRequestToAgent(healthResponse);
                     }

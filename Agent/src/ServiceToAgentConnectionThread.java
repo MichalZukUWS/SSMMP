@@ -14,6 +14,8 @@ public class ServiceToAgentConnectionThread extends Thread {
     private LinkedList<String> requests;
     private HashMap<Integer, ServiceToAgentConnectionThread> servicePorts;
     private LinkedList<ServiceToAgentMessageWithPort> requestsToAgent;
+    private Thread handleListDataThread;
+    private Thread checkBufferThread;
 
     public ServiceToAgentConnectionThread(Socket socket,
             HashMap<Integer, ServiceToAgentConnectionThread> servicePorts,
@@ -36,6 +38,8 @@ public class ServiceToAgentConnectionThread extends Thread {
 
     @Override
     public void interrupt() {
+        checkBufferThread.interrupt();
+        handleListDataThread.interrupt();
         writerToService.close();
         try {
             readerFromService.close();
@@ -50,51 +54,49 @@ public class ServiceToAgentConnectionThread extends Thread {
     public void run() {
 
         // thread to check the buffer and handle the data
-        Thread checkBufferThread = new Thread(() -> {
+        checkBufferThread = new Thread(() -> {
             // check if new data is available in the buffer
             while (!isInterrupted()) {
                 try {
                     if (readerFromService.ready()) {
                         // get data from the buffer
                         String data = readerFromService.readLine();
-                        if (data != null) {
-                            try {
-                                System.out.println(
-                                        "Agent -> I Received the data from the service: " + data);
-                                if ((data.split(";")[0].split(":")[1].equalsIgnoreCase("execution_response"))) {
-                                    synchronized (servicePorts) {
-                                        servicePorts.replace(socketFromService.getPort(), this);
-                                        servicePorts.notify();
-                                    }
-                                }
-                            } catch (Exception e) {
-                                System.out.println("Agent Exception: " + e.getMessage());
-                                e.printStackTrace();
+                        System.out.println(
+                                "Agent -> I Received the data from the service: " + data);
+                        if ((data.split(";")[0].split(":")[1].equalsIgnoreCase("execution_response"))) {
+                            synchronized (servicePorts) {
+                                System.out.println("Agent -> Putted in servicePorts map port: "
+                                        + data.split(";")[2].split(":")[1].split("_")[1] + " with this thread");
+                                servicePorts.put(
+                                        Integer.parseInt(data.split(";")[2].split(":")[1].split("_")[1]), this);
+                                servicePorts.notify();
                             }
-                            try {
-                                synchronized (requestsToAgent) {
-                                    // System.out.println("Agent -> Adding to the queue:" + data);
-                                    requestsToAgent.add(new ServiceToAgentMessageWithPort(data,
-                                            Integer.parseInt(data.split(";")[1].split(":")[1]), this));
-                                    requestsToAgent.notify();
-                                }
-                            } catch (NumberFormatException e) {
-                                System.out.println("Agent Exception: " + e.getMessage());
-                                e.printStackTrace();
-                            }
-
+                        }
+                        synchronized (requestsToAgent) {
+                            // System.out.println("Agent -> Adding to the queue:" + data);
+                            requestsToAgent.add(new ServiceToAgentMessageWithPort(data,
+                                    Integer.parseInt(data.split(";")[1].split(":")[1]), this));
+                            requestsToAgent.notify();
                         }
 
                     }
                 } catch (IOException e) {
                     System.out.println("Agent Exception: " + e.getMessage());
                     e.printStackTrace();
+                    // this.interrupt();
+                    checkBufferThread.interrupt();
+                } catch (NumberFormatException e) {
+                    System.out.println("Agent Exception: " + e.getMessage());
+                    e.printStackTrace();
+                    // this.interrupt();
+                    checkBufferThread.interrupt();
                 }
             }
+            System.out.println("Agent -> Closed thread which is responsible for reading data from Service");
         });
 
         // create a thread to handle LinkedList data
-        Thread handleListDataThread = new Thread(() -> {
+        handleListDataThread = new Thread(() -> {
             while (!isInterrupted()) {
                 try {
                     synchronized (requests) {
@@ -109,9 +111,12 @@ public class ServiceToAgentConnectionThread extends Thread {
                 } catch (Exception e) {
                     System.out.println("Agent Exception: " + e.getMessage());
                     e.printStackTrace();
+                    // this.interrupt();
+                    handleListDataThread.interrupt();
                 }
 
             }
+            System.out.println("Agent -> Closed thread which is responsible for sending data to Service");
         });
 
         checkBufferThread.start();

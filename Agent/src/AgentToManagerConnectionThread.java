@@ -76,10 +76,10 @@ public class AgentToManagerConnectionThread extends Thread {
                 System.out.println("Agent -> Processing the service launch");
                 // 1. Starting a new thread; launching process.
                 threadsWithProcess.put(port, new AgentMaintanceThread(data));
-                synchronized (servicePorts) {
-                  servicePorts.put(port, null);
-                  servicePorts.notify();
-                }
+                // synchronized (servicePorts) {
+                // servicePorts.put(port, null);
+                // servicePorts.notify();
+                // }
                 // 2a. Waiting for service's response.
                 break;
 
@@ -98,7 +98,7 @@ public class AgentToManagerConnectionThread extends Thread {
                 break;
               case "source_service_session_close_request":
                 sourcePort = Integer
-                    .parseInt(initialDataToSend.split(";")[4].split(":")[1].split("_")[1]);
+                    .parseInt(data.split(";")[4].split(":")[1].split("_")[1]);
                 // 1. Sending to the ServiceA (ServiceToAgentConnectionThread).
                 synchronized (servicePorts) {
                   servicePorts.get(sourcePort).addRequestToService(data);
@@ -109,17 +109,19 @@ public class AgentToManagerConnectionThread extends Thread {
 
               case "graceful_shutdown_request":
                 sourcePort = Integer
-                    .parseInt(initialDataToSend.split(";")[4].split(":")[1]);
+                    .parseInt(data.split(";")[4].split(":")[1]);
+
                 // 1. Send to Service A(ServiceToAgentConnectionThread).
                 synchronized (servicePorts) {
-                  servicePorts.get(sourcePort).addRequestToService(data);
+                  servicePorts.get(sourcePort)
+                      .addRequestToService(data.replace("Manager_to_agent", "agent_to_Service_instance"));
                   servicePorts.notify();
                 }
                 // 2a. Waiting for service's response.
                 break;
 
               case "hard_shutdown_request":
-                sourcePort = Integer.parseInt(initialDataToSend.split(";")[4].split(":")[1]);
+                sourcePort = Integer.parseInt(data.split(";")[4].split(":")[1]);
                 // 1. Closing the connection thread.
                 synchronized (servicePorts) {
                   servicePorts.get(sourcePort).interrupt();
@@ -181,7 +183,8 @@ public class AgentToManagerConnectionThread extends Thread {
                 case "graceful_shutdown_response":
                   // 2b. Send back a response to the manager to close the service.
                   System.out.println("Agent -> Sends data to Manager: " + dataObject.getMessage());
-                  writerToManager.println(dataObject.getMessage());
+                  writerToManager
+                      .println(dataObject.getMessage().replace("Service_instance_to_agent", "agent_to_Manager"));
                   writerToManager.flush();
                   break;
 
@@ -235,7 +238,14 @@ public class AgentToManagerConnectionThread extends Thread {
                     writerToManager.flush();
                   }
                   break;
+                case "process_data":
+                  dataString = dataObject.getMessage().replace("Service_to_agent", "agent_to_Manager");
+                  System.out.println("Agent -> Sends data to Manager: " + dataString);
+                  writerToManager.println(dataString);
+                  writerToManager.flush();
+                  break;
                 default:
+                  System.out.println("Agent -> Unknown request from Service: " + dataObject.getMessage());
                   break;
               }
             }

@@ -34,11 +34,10 @@ public class BaaSThread extends Thread {
     @Override
     public void run() {
         try {
-            while (true) {
+            while (!isInterrupted()) {
+
                 // receiving and modifying data
                 String data = readerFromService.readLine();
-                if (data == null)
-                    break;
                 System.out.println("BaaS -> Received data from the Service: " + data);
                 String[] decodedData = deconvertFromProtocole(data);
                 String words = decodedData[3].split(":")[1];
@@ -51,15 +50,15 @@ public class BaaSThread extends Thread {
                 writerToService.flush();
 
             }
-
         } catch (IOException e) {
-            System.out.println("BaaS Exception: " + e.getMessage());
+            System.out.println("BaaS Exception on reading and writing with Service: " + e.getMessage());
             e.printStackTrace();
+            interrupt();
         }
 
         // Service1/2 -> source, BaaS -> dest
-        // TODO what about message_id?
-        // TODO 123 -> Service1/2 port
+        // TODO: what about message_id?
+        // TODO: 123 -> Service1/2 port
         String dataToAgent = "type:dest_service_session_close_info;message_id:" + 10
                 + ";sub_type:dest_service_to_agent;source_service_instance_network_address:localhost_" + 123
                 + ";source_plug_name:P;source_plug_port:" + 123
@@ -72,7 +71,7 @@ public class BaaSThread extends Thread {
             readerFromService.close();
             socketFromService.close();
         } catch (IOException e) {
-            System.out.println("BaaS Exception: " + e.getMessage());
+            System.out.println("BaaS Exception with closing reader and socket from Service: " + e.getMessage());
             e.printStackTrace();
         }
     }
