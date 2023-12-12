@@ -1,13 +1,13 @@
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 
-public class Service1History {
+public class LoginHistory {
     private int port;
     private ArrayList<String> history;
     private LocalDateTime lastUsedDateTime;
     private int serviceInstance;
 
-    public Service1History(int port, int serviceInstance) {
+    public LoginHistory(int port, int serviceInstance) {
         this.port = port;
         this.serviceInstance = serviceInstance;
         history = new ArrayList<>();
@@ -38,8 +38,9 @@ public class Service1History {
     }
 
     public void printHistory() {
-        System.out.println("Service1 History:");
+        System.out.println("////////////////////////////////////////////////////////");
+        System.out.println("Login History:");
         history.forEach(h -> System.out.println(h));
+        System.out.println("////////////////////////////////////////////////////////");
     }
-
 }

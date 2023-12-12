@@ -67,12 +67,36 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
             // Establishing of connection to service
 
             // request for informations about destination service
+            String typeOfService;
+            switch (firstData.split(";")[0].split(":")[1]) {
+                case "register_request":
+                    typeOfService = "Register";
+                    break;
+                case "login_request":
+                    typeOfService = "Login";
+                    break;
+                case "display_posts_request":
+                    typeOfService = "Post";
+                    break;
+                case "chat_request":
+                    typeOfService = "Chat";
+                    break;
+                case "file_upload_request":
+                    typeOfService = "File";
+                    break;
+                case "file_download_request":
+                    typeOfService = "File";
+                    break;
+                default:
+                    typeOfService = null;
+                    break;
+            }
             String dataToAgent = "type:session_request;message_id:" + firstData.split(";")[1].split(":")[1]
                     + ";sub_type:service_to_agent;source_service_name:Api Gateway;source_service_instance_id:100;source_plug_name:P;dest_service_name:";
 
-            dataToAgent += firstData.split(";")[0].split(":")[1];
+            dataToAgent += typeOfService;
 
-            nameOfService = firstData.split(";")[0].split(":")[1];
+            nameOfService = typeOfService;
 
             dataToAgent += ";dest_socket_name:S";
             System.out.println("Api Gateway -> Data transferred to the agent:" + dataToAgent);

@@ -3,11 +3,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.stream.Collectors;
 
-public class BaaSConnections {
+public class ChatConnections {
     private int numberOfServices;
-    private ArrayList<BaaSHistory> historyList;
+    private ArrayList<ChatHistory> historyList;
 
-    public BaaSConnections() {
+    public ChatConnections() {
         numberOfServices = 0;
         historyList = new ArrayList<>();
     }
@@ -16,13 +16,13 @@ public class BaaSConnections {
         return numberOfServices;
     }
 
-    public void addNewConnection(BaaSHistory history) {
+    public void addNewConnection(ChatHistory history) {
         numberOfServices++;
         historyList.add(history);
     }
 
     public void addHistoryByPort(int port, String message) {
-        BaaSHistory temp = historyList.stream().filter(s -> s.getPort() == port).findFirst().orElse(null);
+        ChatHistory temp = historyList.stream().filter(s -> s.getPort() == port).findFirst().orElse(null);
         if (temp != null)
             temp.addToHistory(message);
     }
@@ -32,7 +32,7 @@ public class BaaSConnections {
     }
 
     public void updateLastUsedService(int serviceInstance) {
-        BaaSHistory temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
+        ChatHistory temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
                 .orElse(null);
         if (temp != null) {
             temp.setLastUsedDateTime(LocalDateTime.now());
@@ -46,7 +46,7 @@ public class BaaSConnections {
         LocalDateTime temp = historyList.stream().map(k -> k.getLastUsedDateTime()).max(Comparator.naturalOrder())
                 .orElse(null);
         if (temp != null) {
-            BaaSHistory foo = historyList
+            ChatHistory foo = historyList
                     .stream()
                     .filter(
                             s -> s.getLastUsedDateTime().equals(temp))
@@ -60,16 +60,16 @@ public class BaaSConnections {
         return -1;
     }
 
-    public ArrayList<BaaSHistory> getHistoryList() {
+    public ArrayList<ChatHistory> getHistoryList() {
         return historyList;
     }
 
     public int getMaxPort() {
-        return historyList.stream().mapToInt(BaaSHistory::getPort).max().orElse(-1);
+        return historyList.stream().mapToInt(ChatHistory::getPort).max().orElse(-1);
     }
 
     public void printHistoryByPort(int port) {
-        BaaSHistory temp = historyList.stream().filter(s -> s.getPort() == port).findFirst().orElse(null);
+        ChatHistory temp = historyList.stream().filter(s -> s.getPort() == port).findFirst().orElse(null);
         if (temp != null)
             temp.printHistory();
     }
@@ -79,14 +79,14 @@ public class BaaSConnections {
     }
 
     public void addHistoryByServiceInstance(int serviceInstance, String message) {
-        BaaSHistory temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
+        ChatHistory temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
                 .orElse(null);
         if (temp != null)
             temp.addToHistory(message);
     }
 
     public void printHistoryByServiceInstance(int serviceInstance) {
-        BaaSHistory temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
+        ChatHistory temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
                 .orElse(null);
         if (temp != null)
             temp.printHistory();

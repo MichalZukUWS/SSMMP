@@ -13,9 +13,12 @@ public class AgentToManagerConnectionThread extends Thread {
   private Socket socketFromAgent;
   private PrintWriter writerToAgent;
   private BufferedReader readerFromAgent;
-  private Service1Connections service1Connections;
-  private Service2Connections service2Connections;
   private BaaSConnections baaSConnections;
+  private ChatConnections chatConnections;
+  private FileConnections fileConnections;
+  private LoginConnections loginConnections;
+  private PostsConnections postsConnections;
+  private RegisterConnections registerConnections;
   private String dataToSend;
   private LinkedList<String> requests;
   private int portForService;
@@ -23,14 +26,24 @@ public class AgentToManagerConnectionThread extends Thread {
   private int serviceInstance;
   private ArrayList<RequestForStartService> requestsForStartServiceList;
 
+  // baaSConnections
+  // chatConnections
+  // fileConnections
+  // loginConnections
+  // postsConnections
+  // registerConnections
+
   public AgentToManagerConnectionThread(Socket socketToAgent, int portForService, LinkedList<String> requests)
       throws IOException {
     this.socketFromAgent = socketToAgent;
     writerToAgent = new PrintWriter(this.socketFromAgent.getOutputStream());
     readerFromAgent = new BufferedReader(new InputStreamReader(this.socketFromAgent.getInputStream()));
-    service1Connections = new Service1Connections();
-    service2Connections = new Service2Connections();
     baaSConnections = new BaaSConnections();
+    chatConnections = new ChatConnections();
+    fileConnections = new FileConnections();
+    loginConnections = new LoginConnections();
+    postsConnections = new PostsConnections();
+    registerConnections = new RegisterConnections();
     dataToSend = null;
     agentPort = 0;
     serviceInstance = 0;
@@ -48,7 +61,8 @@ public class AgentToManagerConnectionThread extends Thread {
 
   @Override
   public void run() {
-    new ManagerCheckServicesActivityThread(service1Connections, service2Connections, baaSConnections, requests);
+    new ManagerCheckServicesActivityThread(baaSConnections, chatConnections, fileConnections, loginConnections,
+        postsConnections, registerConnections, requests);
     // process for reading agent request/responses
     Thread readerBufferThread = new Thread(() -> {
       while (!isInterrupted()) {
@@ -103,15 +117,29 @@ public class AgentToManagerConnectionThread extends Thread {
                     .findFirst().orElse(null);
 
                 switch (element.getTypeOfService()) {
-                  case "Service1":
-                    service1Connections.addHistoryByPort(element.getPortOfService(),
-                        "Service1 started at: " + getDateTimeNowString());
-                    break;
-                  case "Service2":
-                    service2Connections.addPort(element.getPortOfService());
-                    break;
                   case "BaaS":
-                    baaSConnections.addPort(element.getPortOfService());
+                    baaSConnections.addHistoryByPort(element.getPortOfService(),
+                        "BaaS started at: " + getDateTimeNowString());
+                    break;
+                  case "Chat":
+                    chatConnections.addHistoryByPort(element.getPortOfService(),
+                        "Chat started at: " + getDateTimeNowString());
+                    break;
+                  case "File":
+                    fileConnections.addHistoryByPort(element.getPortOfService(),
+                        "File started at: " + getDateTimeNowString());
+                    break;
+                  case "Login":
+                    loginConnections.addHistoryByPort(element.getPortOfService(),
+                        "Login started at: " + getDateTimeNowString());
+                    break;
+                  case "Post":
+                    postsConnections.addHistoryByPort(element.getPortOfService(),
+                        "Post started at: " + getDateTimeNowString());
+                    break;
+                  case "Register":
+                    registerConnections.addHistoryByPort(element.getPortOfService(),
+                        "Register started at: " + getDateTimeNowString());
                     break;
                   default:
                     System.out.println("Manager -> Unknown Service in requestsForStartService list");
@@ -132,23 +160,23 @@ public class AgentToManagerConnectionThread extends Thread {
                 // Service1, Service2, and BaaS is used in developing stage for testing
                 // switch for process connection to specific Service
                 switch (typeOfService) {
-                  case "Service1":
-                    // Service1 isn't running
-                    if (service1Connections.getNumberOfServices() == 0
+                  case "BaaS":
+                    // BaaS isn't running
+                    if (baaSConnections.getNumberOfServices() == 0
                         && !requestsForStartServiceList.stream().anyMatch(
                             request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
                       System.out.println(
-                          "Manager -> Accepted request to connect to Service1, Service1 is not running");
+                          "Manager -> Accepted request to connect to BaaS, BaaS is not running");
                       serviceInstance++;
                       // getting port for new instance
                       int portForS = getNextPortForService();
-                      // adding entry to Service1 history
-                      service1Connections.addNewConnection(new Service1History(portForS, serviceInstance));
-                      service1Connections.updateLastUsedService(serviceInstance);
-                      service1Connections.addHistoryByPort(portForS,
-                          "Request for Service1, starting Service1 at: "
+                      // adding entry to BaaS history
+                      baaSConnections.addNewConnection(new BaaSHistory(portForS, serviceInstance));
+                      baaSConnections.updateLastUsedService(serviceInstance);
+                      baaSConnections.addHistoryByPort(portForS,
+                          "Request for BaaS, starting BaaS at: "
                               + getDateTimeNowString());
-                      service1Connections.printHistoryByPort(portForS);
+                      baaSConnections.printHistoryByPort(portForS);
                       // list that contains informations about request
                       requestsForStartServiceList.add(new RequestForStartService(
                           Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
@@ -163,93 +191,262 @@ public class AgentToManagerConnectionThread extends Thread {
 
                       requests.add(requestFromQueue);
                       requests.notify();
-                      // Service1 is starting
-                    } else if (service1Connections.getNumberOfServices() != 0
+                      // BaaS is starting
+                    } else if (baaSConnections.getNumberOfServices() != 0
                         && requestsForStartServiceList.stream().anyMatch(
                             request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
                       requests.add(requestFromQueue);
                       requests.notify();
-                      // Service1 started and is ready to connect
-                    } else if (service1Connections.getNumberOfServices() != 0
-                        && !requestsForStartServiceList.stream().anyMatch(
-                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
-                      System.out.println("Manager -> Accepted request to connect to Service1, sends back data");
-                      dataToSend = "type:session_response;" + message_id
-                          + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
-                          + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
-                      writerToAgent.println(dataToSend.replace("agent_to_Manager", "Manager_to_agent"));
-                      writerToAgent.flush();
-                    }
-
-                    break;
-
-                  case "Service2":
-                    if (service2Connections.getNumberOfServices() == 0
-                        && !requestsForStartServiceList.stream().anyMatch(
-                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
-                      System.out.println(
-                          "Manager -> Accepted request to connect to Service2, Service2 is not running");
-                      serviceInstance++;
-                      int portForS = getNextPortForService();
-                      requestsForStartServiceList.add(new RequestForStartService(
-                          Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
-                      dataToSend = "type:execution_request;" + decodedData[1]
-                          + ";agent_newtork_address:localhost_" + agentPort + ";Service_name:"
-                          + typeOfService
-                          + ";Service_instance:" + serviceInstance
-                          + ";socket_configuration:localhost_" + portForS
-                          + ";plug_configuration:configuration of plugs";
-                      writerToAgent.println(dataToSend);
-                      writerToAgent.flush();
-                      requests.add(requestFromQueue);
-                      requests.notify();
-                    } else if (service2Connections.getNumberOfServices() == 0
-                        && requestsForStartServiceList.stream().anyMatch(
-                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
-                      requests.add(requestFromQueue);
-                      requests.notify();
-                    } else if (service2Connections.getNumberOfServices() != 0
-                        && !requestsForStartServiceList.stream().anyMatch(
-                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
-                      System.out.println("Manager -> Accepted request to connect to Service2, sends back data");
-                      dataToSend = "type:session_response;" + message_id
-                          + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
-                          + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
-                      writerToAgent.println(dataToSend.replace("agent_to_Manager", "Manager_to_agent"));
-                      writerToAgent.flush();
-                    }
-
-                    break;
-
-                  case "BaaS":
-                    if (baaSConnections.getNumberOfServices() == 0
-                        && !requestsForStartServiceList.stream().anyMatch(
-                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
-                      System.out.println(
-                          "Manager -> Accepted request to connect to BaaS, BaaS is not running");
-                      serviceInstance++;
-                      int portForS = getNextPortForService();
-                      requestsForStartServiceList.add(new RequestForStartService(
-                          Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
-                      dataToSend = "type:execution_request;" + decodedData[1]
-                          + ";agent_newtork_address:localhost_" + agentPort + ";Service_name:"
-                          + typeOfService
-                          + ";Service_instance:" + serviceInstance
-                          + ";socket_configuration:localhost_" + portForS
-                          + ";plug_configuration:configuration of plugs";
-                      writerToAgent.println(dataToSend);
-                      writerToAgent.flush();
-                      requests.add(requestFromQueue);
-                      requests.notify();
-                    } else if (baaSConnections.getNumberOfServices() == 0
-                        && requestsForStartServiceList.stream().anyMatch(
-                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
-                      requests.add(requestFromQueue);
-                      requests.notify();
+                      // BaaS started and is ready to connect
                     } else if (baaSConnections.getNumberOfServices() != 0
                         && !requestsForStartServiceList.stream().anyMatch(
                             request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
                       System.out.println("Manager -> Accepted request to connect to BaaS, sends back data");
+                      dataToSend = "type:session_response;" + message_id
+                          + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
+                          + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
+                      writerToAgent.println(dataToSend.replace("agent_to_Manager", "Manager_to_agent"));
+                      writerToAgent.flush();
+                    }
+                    break;
+                  case "Chat":
+                    // Chat isn't running
+                    if (chatConnections.getNumberOfServices() == 0
+                        && !requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      System.out.println(
+                          "Manager -> Accepted request to connect to Chat, Chat is not running");
+                      serviceInstance++;
+                      // getting port for new instance
+                      int portForS = getNextPortForService();
+                      // adding entry to Chat history
+                      chatConnections.addNewConnection(new ChatHistory(portForS, serviceInstance));
+                      chatConnections.updateLastUsedService(serviceInstance);
+                      chatConnections.addHistoryByPort(portForS,
+                          "Request for Chat, starting Chat at: "
+                              + getDateTimeNowString());
+                      chatConnections.printHistoryByPort(portForS);
+                      // list that contains informations about request
+                      requestsForStartServiceList.add(new RequestForStartService(
+                          Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
+                      dataToSend = "type:execution_request;" + decodedData[1]
+                          + ";agent_newtork_address:localhost_" + agentPort + ";Service_name:"
+                          + typeOfService
+                          + ";Service_instance:" + serviceInstance
+                          + ";socket_configuration:localhost_" + portForS
+                          + ";plug_configuration:configuration of plugs";
+                      writerToAgent.println(dataToSend);
+                      writerToAgent.flush();
+
+                      requests.add(requestFromQueue);
+                      requests.notify();
+                      // Chat is starting
+                    } else if (chatConnections.getNumberOfServices() != 0
+                        && requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      requests.add(requestFromQueue);
+                      requests.notify();
+                      // Chat started and is ready to connect
+                    } else if (chatConnections.getNumberOfServices() != 0
+                        && !requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      System.out.println("Manager -> Accepted request to connect to Chat, sends back data");
+                      dataToSend = "type:session_response;" + message_id
+                          + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
+                          + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
+                      writerToAgent.println(dataToSend.replace("agent_to_Manager", "Manager_to_agent"));
+                      writerToAgent.flush();
+                    }
+                    break;
+                  case "File":
+                    // File isn't running
+                    if (fileConnections.getNumberOfServices() == 0
+                        && !requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      System.out.println(
+                          "Manager -> Accepted request to connect to File, File is not running");
+                      serviceInstance++;
+                      // getting port for new instance
+                      int portForS = getNextPortForService();
+                      // adding entry to File history
+                      fileConnections.addNewConnection(new FileHistory(portForS, serviceInstance));
+                      fileConnections.updateLastUsedService(serviceInstance);
+                      fileConnections.addHistoryByPort(portForS,
+                          "Request for File, starting File at: "
+                              + getDateTimeNowString());
+                      fileConnections.printHistoryByPort(portForS);
+                      // list that contains informations about request
+                      requestsForStartServiceList.add(new RequestForStartService(
+                          Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
+                      dataToSend = "type:execution_request;" + decodedData[1]
+                          + ";agent_newtork_address:localhost_" + agentPort + ";Service_name:"
+                          + typeOfService
+                          + ";Service_instance:" + serviceInstance
+                          + ";socket_configuration:localhost_" + portForS
+                          + ";plug_configuration:configuration of plugs";
+                      writerToAgent.println(dataToSend);
+                      writerToAgent.flush();
+
+                      requests.add(requestFromQueue);
+                      requests.notify();
+                      // File is starting
+                    } else if (fileConnections.getNumberOfServices() != 0
+                        && requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      requests.add(requestFromQueue);
+                      requests.notify();
+                      // File started and is ready to connect
+                    } else if (fileConnections.getNumberOfServices() != 0
+                        && !requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      System.out.println("Manager -> Accepted request to connect to File, sends back data");
+                      dataToSend = "type:session_response;" + message_id
+                          + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
+                          + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
+                      writerToAgent.println(dataToSend.replace("agent_to_Manager", "Manager_to_agent"));
+                      writerToAgent.flush();
+                    }
+                    break;
+                  case "Login":
+                    // Login isn't running
+                    if (loginConnections.getNumberOfServices() == 0
+                        && !requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      System.out.println(
+                          "Manager -> Accepted request to connect to Login, Login is not running");
+                      serviceInstance++;
+                      // getting port for new instance
+                      int portForS = getNextPortForService();
+                      // adding entry to File history
+                      loginConnections.addNewConnection(new LoginHistory(portForS, serviceInstance));
+                      loginConnections.updateLastUsedService(serviceInstance);
+                      loginConnections.addHistoryByPort(portForS,
+                          "Request for Login, starting Login at: "
+                              + getDateTimeNowString());
+                      loginConnections.printHistoryByPort(portForS);
+                      // list that contains informations about request
+                      requestsForStartServiceList.add(new RequestForStartService(
+                          Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
+                      dataToSend = "type:execution_request;" + decodedData[1]
+                          + ";agent_newtork_address:localhost_" + agentPort + ";Service_name:"
+                          + typeOfService
+                          + ";Service_instance:" + serviceInstance
+                          + ";socket_configuration:localhost_" + portForS
+                          + ";plug_configuration:configuration of plugs";
+                      writerToAgent.println(dataToSend);
+                      writerToAgent.flush();
+
+                      requests.add(requestFromQueue);
+                      requests.notify();
+                      // Login is starting
+                    } else if (loginConnections.getNumberOfServices() != 0
+                        && requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      requests.add(requestFromQueue);
+                      requests.notify();
+                      // Login started and is ready to connect
+                    } else if (loginConnections.getNumberOfServices() != 0
+                        && !requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      System.out.println("Manager -> Accepted request to connect to Login, sends back data");
+                      dataToSend = "type:session_response;" + message_id
+                          + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
+                          + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
+                      writerToAgent.println(dataToSend.replace("agent_to_Manager", "Manager_to_agent"));
+                      writerToAgent.flush();
+                    }
+                    break;
+                  case "Post":
+                    // Post isn't running
+                    if (postsConnections.getNumberOfServices() == 0
+                        && !requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      System.out.println(
+                          "Manager -> Accepted request to connect to Post, Post is not running");
+                      serviceInstance++;
+                      // getting port for new instance
+                      int portForS = getNextPortForService();
+                      // adding entry to Post history
+                      postsConnections.addNewConnection(new PostsHistory(portForS, serviceInstance));
+                      postsConnections.updateLastUsedService(serviceInstance);
+                      postsConnections.addHistoryByPort(portForS,
+                          "Request for Post, starting Post at: "
+                              + getDateTimeNowString());
+                      postsConnections.printHistoryByPort(portForS);
+                      // list that contains informations about request
+                      requestsForStartServiceList.add(new RequestForStartService(
+                          Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
+                      dataToSend = "type:execution_request;" + decodedData[1]
+                          + ";agent_newtork_address:localhost_" + agentPort + ";Service_name:"
+                          + typeOfService
+                          + ";Service_instance:" + serviceInstance
+                          + ";socket_configuration:localhost_" + portForS
+                          + ";plug_configuration:configuration of plugs";
+                      writerToAgent.println(dataToSend);
+                      writerToAgent.flush();
+
+                      requests.add(requestFromQueue);
+                      requests.notify();
+                      // Post is starting
+                    } else if (postsConnections.getNumberOfServices() != 0
+                        && requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      requests.add(requestFromQueue);
+                      requests.notify();
+                      // Post started and is ready to connect
+                    } else if (postsConnections.getNumberOfServices() != 0
+                        && !requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      System.out.println("Manager -> Accepted request to connect to Post, sends back data");
+                      dataToSend = "type:session_response;" + message_id
+                          + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
+                          + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
+                      writerToAgent.println(dataToSend.replace("agent_to_Manager", "Manager_to_agent"));
+                      writerToAgent.flush();
+                    }
+                    break;
+                  case "Register":
+                    // Register isn't running
+                    if (registerConnections.getNumberOfServices() == 0
+                        && !requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      System.out.println(
+                          "Manager -> Accepted request to connect to Register, Register is not running");
+                      serviceInstance++;
+                      // getting port for new instance
+                      int portForS = getNextPortForService();
+                      // adding entry to Register history
+                      registerConnections.addNewConnection(new RegisterHistory(portForS, serviceInstance));
+                      registerConnections.updateLastUsedService(serviceInstance);
+                      registerConnections.addHistoryByPort(portForS,
+                          "Request for Register, starting Register at: "
+                              + getDateTimeNowString());
+                      registerConnections.printHistoryByPort(portForS);
+                      // list that contains informations about request
+                      requestsForStartServiceList.add(new RequestForStartService(
+                          Integer.parseInt(decodedData[1].split(":")[1]), portForS, typeOfService));
+                      dataToSend = "type:execution_request;" + decodedData[1]
+                          + ";agent_newtork_address:localhost_" + agentPort + ";Service_name:"
+                          + typeOfService
+                          + ";Service_instance:" + serviceInstance
+                          + ";socket_configuration:localhost_" + portForS
+                          + ";plug_configuration:configuration of plugs";
+                      writerToAgent.println(dataToSend);
+                      writerToAgent.flush();
+
+                      requests.add(requestFromQueue);
+                      requests.notify();
+                      // Register is starting
+                    } else if (registerConnections.getNumberOfServices() != 0
+                        && requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      requests.add(requestFromQueue);
+                      requests.notify();
+                      // Register started and is ready to connect
+                    } else if (registerConnections.getNumberOfServices() != 0
+                        && !requestsForStartServiceList.stream().anyMatch(
+                            request -> request.getMessageID() == Integer.parseInt(decodedData[1].split(":")[1]))) {
+                      System.out.println("Manager -> Accepted request to connect to Register, sends back data");
                       dataToSend = "type:session_response;" + message_id
                           + ";sub_type:Manager_to_agent;status:200;dest_Service_instance_network_address:localhost_"
                           + getServicePort(typeOfService) + ";dest_socket_port:" + getServicePort(typeOfService);
@@ -269,67 +466,168 @@ public class AgentToManagerConnectionThread extends Thread {
               // request for information about estabilishing connection Services
               case "session_ack":
                 System.out.println("Manager -> Accepted data on the successful connection of Services.");
-                // source port is Service1
-                if (service1Connections.isServiceWithPort(Integer.parseInt(decodedData[4].split(":")[1]))) {
+                int port = Integer.parseInt(decodedData[4].split(":")[1]);
+                int destPort = Integer.parseInt(decodedData[5].split(":")[1]);
+                // source port is Chat
+                if (chatConnections.isServiceWithPort(port)) {
                   // BaaS is the one possible case of connection
-                  service1Connections.addHistoryByPort(Integer.parseInt(decodedData[4].split(":")[1]),
-                      "Service1 connected to BaaS at: " + getDateTimeNowString());
-                  service1Connections.printHistoryByPort(Integer.parseInt(decodedData[4].split(":")[1]));
+                  chatConnections.addHistoryByPort(port,
+                      "Chat connected to BaaS at: " + getDateTimeNowString());
+                  chatConnections.printHistoryByPort(port);
                 }
-                // source port is Service2
-                else if (service2Connections.getPorts().stream()
-                    .anyMatch(s -> s == Integer.parseInt(decodedData[4].split(":")[1]))) {
+                // source port is File
+                else if (fileConnections.isServiceWithPort(port)) {
                   // BaaS is the one possible case of connection
+                  fileConnections.addHistoryByPort(port,
+                      "File connected to BaaS at: " + getDateTimeNowString());
+                  fileConnections.printHistoryByPort(port);
+                }
+                // source port is Login
+                else if (loginConnections.isServiceWithPort(port)) {
+                  // BaaS is the one possible case of connection
+                  loginConnections.addHistoryByPort(port,
+                      "File connected to BaaS at: " + getDateTimeNowString());
+                  loginConnections.printHistoryByPort(port);
+                }
+                // source port is Post
+                else if (postsConnections.isServiceWithPort(port)) {
+                  // BaaS is the one possible case of connection
+                  postsConnections.addHistoryByPort(port,
+                      "Post connected to BaaS at: " + getDateTimeNowString());
+                  postsConnections.printHistoryByPort(port);
+                }
+                // source port is Register
+                else if (registerConnections.isServiceWithPort(port)) {
+                  // BaaS is the one possible case of connection
+                  registerConnections.addHistoryByPort(port,
+                      "Register connected to BaaS at: " + getDateTimeNowString());
+                  registerConnections.printHistoryByPort(port);
                 }
                 // source port is Api Gateway
                 else {
-                  // destination port is Service1
-                  if (service1Connections.isServiceWithPort(Integer.parseInt(decodedData[5].split(":")[1]))) {
-                    service1Connections.addHistoryByPort(Integer.parseInt(decodedData[5].split(":")[1]),
-                        "Service1 accepted a connection from Api Gateway at: " + getDateTimeNowString());
-                    service1Connections.printHistoryByPort(Integer.parseInt(decodedData[5].split(":")[1]));
-                  }
-                  // destination port is Service2
-                  else if (service2Connections.getPorts().stream()
-                      .anyMatch(d -> d == Integer.parseInt(decodedData[5].split(":")[1]))) {
 
+                  // destination port is BaaS
+                  // TODO: add if statements for source port
+                  if (baaSConnections.isServiceWithPort(destPort)) {
+                    baaSConnections.addHistoryByPort(destPort,
+                        "BaaS accepted a connection from XXX at: " + getDateTimeNowString());
+                    baaSConnections.printHistoryByPort(destPort);
                   }
+                  // destination port is Chat
+                  else if (chatConnections.isServiceWithPort(destPort)) {
+                    chatConnections.addHistoryByPort(destPort,
+                        "Chat accepted a connection from Api Gateway at: " + getDateTimeNowString());
+                    chatConnections.printHistoryByPort(destPort);
+                  }
+                  // destination port is File
+                  else if (fileConnections.isServiceWithPort(destPort)) {
+                    fileConnections.addHistoryByPort(destPort,
+                        "File accepted a connection from Api Gateway at: " + getDateTimeNowString());
+                    fileConnections.printHistoryByPort(destPort);
+                  }
+                  // destination port is Login
+                  else if (loginConnections.isServiceWithPort(destPort)) {
+                    loginConnections.addHistoryByPort(destPort,
+                        "Login accepted a connection from Api Gateway at: " + getDateTimeNowString());
+                    loginConnections.printHistoryByPort(destPort);
+                  }
+                  // destination port is Post
+                  else if (postsConnections.isServiceWithPort(destPort)) {
+                    postsConnections.addHistoryByPort(destPort,
+                        "Post accepted a connection from Api Gateway at: " + getDateTimeNowString());
+                    postsConnections.printHistoryByPort(destPort);
+                  }
+                  // destination port is Register
+                  else if (registerConnections.isServiceWithPort(destPort)) {
+                    registerConnections.addHistoryByPort(destPort,
+                        "Register accepted a connection from Api Gateway at: " + getDateTimeNowString());
+                    registerConnections.printHistoryByPort(destPort);
+                  }
+
                 }
                 break;
 
               // source Service closed connetion with another Service
               case "source_Service_session_close_info":
+                int pport = Integer.parseInt(decodedData[11].split(":")[1]);
+                int destPport = Integer.parseInt(decodedData[6].split(":")[1]);
                 // source_Service_name:A
                 switch (decodedData[3].split(":")[1]) {
                   case "Api Gateway":
                     // dest_Service_name:B
                     switch (decodedData[8].split(":")[1]) {
-                      // 1. Api Gateway -> Service1
-                      case "Service1":
-                        service1Connections.addHistoryByPort(Integer.parseInt(decodedData[11].split(":")[1]),
-                            "Api Gateway send message that closed connection with Service1 at: "
+
+                      // 1. Api Gateway -> Chat
+                      case "Chat":
+                        chatConnections.addHistoryByPort(pport,
+                            "Api Gateway send message that closed connection with Chat at: "
                                 + getDateTimeNowString());
-                        service1Connections.printHistoryByPort(Integer.parseInt(decodedData[11].split(":")[1]));
-                        break;
-                      // 2. Api Gateway -> Service2
-                      case "Service2":
+                        chatConnections.printHistoryByPort(pport);
                         break;
 
+                      // 2. Api Gateway -> File
+                      case "File":
+                        fileConnections.addHistoryByPort(pport,
+                            "Api Gateway send message that closed connection with File at: "
+                                + getDateTimeNowString());
+                        fileConnections.printHistoryByPort(pport);
+                        break;
+                      // 3. Api Gateway -> Login
+                      case "Login":
+                        loginConnections.addHistoryByPort(pport,
+                            "Api Gateway send message that closed connection with Login at: "
+                                + getDateTimeNowString());
+                        loginConnections.printHistoryByPort(pport);
+                        break;
+                      // 4. Api Gateway -> Post
+                      case "Post":
+                        postsConnections.addHistoryByPort(pport,
+                            "Api Gateway send message that closed connection with Post at: "
+                                + getDateTimeNowString());
+                        postsConnections.printHistoryByPort(pport);
+                        break;
+                      // 5. Api Gateway -> Register
+                      case "Register":
+                        registerConnections.addHistoryByPort(pport,
+                            "Api Gateway send message that closed connection with Register at: "
+                                + getDateTimeNowString());
+                        registerConnections.printHistoryByPort(pport);
+                        break;
                       default:
                         System.out.println(
                             "Manager -> In source Service session close info is unknown destination serivce name");
                         break;
                     }
                     break;
-                  case "Service1":
-                    service1Connections.addHistoryByPort(Integer.parseInt(decodedData[6].split(":")[1]),
-                        "Service1 send message that closed connection with BaaS at: " + getDateTimeNowString());
-                    service1Connections.printHistoryByPort(Integer.parseInt(decodedData[6].split(":")[1]));
-                    // 3. Service1 -> BaaS
+                  // Chat -> BaaS
+                  case "Chat":
+                    baaSConnections.addHistoryByPort(destPport,
+                        "Chat send message that closed connection with BaaS at: " + getDateTimeNowString());
+                    baaSConnections.printHistoryByPort(destPport);
                     break;
-
-                  case "Service2":
-                    // 4. Service2 -> BaaS
+                  // File -> BaaS
+                  case "File":
+                    baaSConnections.addHistoryByPort(destPport,
+                        "File send message that closed connection with BaaS at: " + getDateTimeNowString());
+                    baaSConnections.printHistoryByPort(destPport);
+                    break;
+                  // Login -> BaaS
+                  case "Login":
+                    baaSConnections.addHistoryByPort(destPport,
+                        "Login send message that closed connection with BaaS at: " + getDateTimeNowString());
+                    baaSConnections.printHistoryByPort(destPport);
+                    break;
+                  // Post -> BaaS
+                  case "Post":
+                    baaSConnections.addHistoryByPort(destPport,
+                        "Post send message that closed connection with BaaS at: " + getDateTimeNowString());
+                    baaSConnections.printHistoryByPort(destPport);
+                    break;
+                  // Register -> BaaS
+                  case "Register":
+                    baaSConnections.addHistoryByPort(destPport,
+                        "Register send message that closed connection with BaaS at: " + getDateTimeNowString());
+                    baaSConnections.printHistoryByPort(destPport);
                     break;
 
                   default:
@@ -341,20 +639,41 @@ public class AgentToManagerConnectionThread extends Thread {
               // destination Service closed connetion with another Service
               case "dest_Service_session_close_info":
                 // dest_Service_name:B
+                int ppport = Integer.parseInt(decodedData[10].split(":")[1]);
                 switch (decodedData[6].split(":")[1]) {
-                  // 1. Service1 <- Api Gateway
-                  case "Service1":
-                    service1Connections.addHistoryByPort(Integer.parseInt(decodedData[10].split(":")[1]),
-                        "Service1 send message that closed connection with Api Gateway at: " + getDateTimeNowString());
-                    break;
-                  // 2. Service2 <- Api Gateway
-                  case "Service2":
-                    break;
+                  // TODO: add if statements
                   case "BaaS":
                     // 3. BaaS <- Service1
 
                     // 4. BaaS <- Service2
                     break;
+
+                  // 1. Chat <- Api Gateway
+                  case "Chat":
+                    chatConnections.addHistoryByPort(ppport,
+                        "Chat send message that closed connection with Api Gateway at: " + getDateTimeNowString());
+                    break;
+                  // 2. File <- Api Gateway
+                  case "File":
+                    fileConnections.addHistoryByPort(ppport,
+                        "File send message that closed connection with Api Gateway at: " + getDateTimeNowString());
+                    break;
+                  // 3. Login <- Api Gateway
+                  case "Login":
+                    fileConnections.addHistoryByPort(ppport,
+                        "Login send message that closed connection with Api Gateway at: " + getDateTimeNowString());
+                    break;
+                  // 4. Post <- Api Gateway
+                  case "Post":
+                    postsConnections.addHistoryByPort(ppport,
+                        "Post send message that closed connection with Api Gateway at: " + getDateTimeNowString());
+                    break;
+                  // 5. Register <- Api Gateway
+                  case "Register":
+                    registerConnections.addHistoryByPort(ppport,
+                        "Register send message that closed connection with Api Gateway at: " + getDateTimeNowString());
+                    break;
+
                   default:
                     System.out
                         .println("Manager -> In dest Service session close info is unknown destination serivce name");
@@ -367,20 +686,55 @@ public class AgentToManagerConnectionThread extends Thread {
                 // TODO:
                 break;
               case "process_data":
+                int serviceI = Integer.parseInt(decodedData[4].split(":")[1]);
                 switch (decodedData[3].split(":")[1]) {
-                  case "Service1":
+                  // TODO:
+                  case "BaaS":
+                    break;
+                  case "Chat":
                     System.out
                         .println(
-                            "Manager -> I got data about that Service1 is processing data, updating lastUsedDateTime");
-                    int serviceI = Integer.parseInt(decodedData[4].split(":")[1]);
-                    service1Connections.updateLastUsedService(serviceI);
-                    service1Connections.addHistoryByServiceInstance(serviceI,
-                        "Service1 processed data at: " + getDateTimeNowString());
-                    service1Connections.printHistoryByServiceInstance(serviceI);
+                            "Manager -> I got data about that Chat is processing data, updating lastUsedDateTime");
+                    chatConnections.updateLastUsedService(serviceI);
+                    chatConnections.addHistoryByServiceInstance(serviceI,
+                        "Chat processed data at: " + getDateTimeNowString());
+                    chatConnections.printHistoryByServiceInstance(serviceI);
                     break;
-                  case "Service2":
+                  case "File":
+                    System.out
+                        .println(
+                            "Manager -> I got data about that File is processing data, updating lastUsedDateTime");
+                    fileConnections.updateLastUsedService(serviceI);
+                    fileConnections.addHistoryByServiceInstance(serviceI,
+                        "File processed data at: " + getDateTimeNowString());
+                    fileConnections.printHistoryByServiceInstance(serviceI);
                     break;
-                  case "BaaS":
+                  case "Login":
+                    System.out
+                        .println(
+                            "Manager -> I got data about that Login is processing data, updating lastUsedDateTime");
+                    loginConnections.updateLastUsedService(serviceI);
+                    loginConnections.addHistoryByServiceInstance(serviceI,
+                        "Login processed data at: " + getDateTimeNowString());
+                    loginConnections.printHistoryByServiceInstance(serviceI);
+                    break;
+                  case "Post":
+                    System.out
+                        .println(
+                            "Manager -> I got data about that Post is processing data, updating lastUsedDateTime");
+                    postsConnections.updateLastUsedService(serviceI);
+                    postsConnections.addHistoryByServiceInstance(serviceI,
+                        "Post processed data at: " + getDateTimeNowString());
+                    postsConnections.printHistoryByServiceInstance(serviceI);
+                    break;
+                  case "Register":
+                    System.out
+                        .println(
+                            "Manager -> I got data about that Register is processing data, updating lastUsedDateTime");
+                    registerConnections.updateLastUsedService(serviceI);
+                    registerConnections.addHistoryByServiceInstance(serviceI,
+                        "Register processed data at: " + getDateTimeNowString());
+                    registerConnections.printHistoryByServiceInstance(serviceI);
                     break;
                   default:
                     System.out.println(
@@ -393,7 +747,7 @@ public class AgentToManagerConnectionThread extends Thread {
                 writerToAgent.flush();
                 break;
               case "graceful_shutdown_response":
-                // TODO: remove here from service1History not when request is sended
+                // TODO: remove here from serviceHistory not when request is sended
                 break;
               default:
                 System.out.println("Manager -> Unknown request: " + requestFromQueue);
@@ -419,17 +773,18 @@ public class AgentToManagerConnectionThread extends Thread {
   // function for getting port to Service
   private int getServicePort(String typeOfService) {
     switch (typeOfService) {
-      case "Service1":
-        return service1Connections.getPort();
-
-      // TODO: change to latest used Service/least used Service
-      case "Service2":
-        return service2Connections.getPorts()
-            .get(0);
-
       case "BaaS":
-        return baaSConnections.getPorts()
-            .get(0);
+        return baaSConnections.getPort();
+      case "Chat":
+        return chatConnections.getPort();
+      case "File":
+        return fileConnections.getPort();
+      case "Login":
+        return loginConnections.getPort();
+      case "Post":
+        return postsConnections.getPort();
+      case "Register":
+        return registerConnections.getPort();
       default:
         return -1;
     }
@@ -437,27 +792,40 @@ public class AgentToManagerConnectionThread extends Thread {
 
   // function that's return next free port for new Service process
   private int getNextPortForService() {
-    if (service1Connections.getNumberOfServices() == 0 && service2Connections.getNumberOfServices() == 0
-        && baaSConnections.getNumberOfServices() == 0) {
+    if (baaSConnections.getNumberOfServices() == 0 && chatConnections.getNumberOfServices() == 0
+        && fileConnections.getNumberOfServices() == 0 && loginConnections.getNumberOfServices() == 0
+        && postsConnections.getNumberOfServices() == 0 && registerConnections.getNumberOfServices() == 0) {
       int returnedPort = portForService;
       portForService++;
       return returnedPort;
     } else {
       int maxPort = -1;
-      int[] tabOfPorts = new int[4];
-      if (service1Connections.getNumberOfServices() != 0)
-        tabOfPorts[0] = service1Connections.getMaxPort();
+      int[] tabOfPorts = new int[7];
+      if (baaSConnections.getNumberOfServices() != 0)
+        tabOfPorts[0] = baaSConnections.getMaxPort();
       else
         tabOfPorts[0] = -1;
-      if (service2Connections.getNumberOfServices() != 0)
-        tabOfPorts[1] = service2Connections.getPorts().get(service2Connections.getNumberOfServices() - 1);
+      if (chatConnections.getNumberOfServices() != 0)
+        tabOfPorts[1] = chatConnections.getMaxPort();
       else
         tabOfPorts[1] = -1;
-      if (baaSConnections.getNumberOfServices() != 0)
-        tabOfPorts[2] = baaSConnections.getPorts().get(baaSConnections.getNumberOfServices() - 1);
+      if (fileConnections.getNumberOfServices() != 0)
+        tabOfPorts[2] = fileConnections.getMaxPort();
       else
         tabOfPorts[2] = -1;
-      tabOfPorts[3] = portForService;
+      if (loginConnections.getNumberOfServices() != 0)
+        tabOfPorts[3] = loginConnections.getMaxPort();
+      else
+        tabOfPorts[3] = -1;
+      if (postsConnections.getNumberOfServices() != 0)
+        tabOfPorts[4] = postsConnections.getMaxPort();
+      else
+        tabOfPorts[4] = -1;
+      if (registerConnections.getNumberOfServices() != 0)
+        tabOfPorts[5] = registerConnections.getMaxPort();
+      else
+        tabOfPorts[5] = -1;
+      tabOfPorts[6] = portForService;
       for (int i = 0; i < tabOfPorts.length; i++) {
         if (tabOfPorts[i] > maxPort)
           maxPort = tabOfPorts[i];

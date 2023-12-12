@@ -4,9 +4,10 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 
-public class Service2ToAgentConnectionThread extends Thread {
+public class ServiceToAgentConnectionThread extends Thread {
 
     private Socket socketToAgent;
     private PrintWriter writerToAgent;
@@ -14,10 +15,13 @@ public class Service2ToAgentConnectionThread extends Thread {
     private LinkedList<String> requests;
     private LinkedList<String> responses;
     private String args;
+    private ArrayList<ServiceThread> threads;
+    private String typeOfService;
 
-    public Service2ToAgentConnectionThread(
+    public ServiceToAgentConnectionThread(
             LinkedList<String> requests,
-            LinkedList<String> responses, String args) throws UnknownHostException, IOException {
+            LinkedList<String> responses, String args, ArrayList<ServiceThread> threads, String typeOfService)
+            throws UnknownHostException, IOException {
         this.requests = requests;
         this.responses = responses;
         this.args = args;
@@ -26,6 +30,8 @@ public class Service2ToAgentConnectionThread extends Thread {
                 Integer.parseInt(args.split(";")[2].split(":")[1].split("_")[1]));
         writerToAgent = new PrintWriter(socketToAgent.getOutputStream());
         readerFromAgent = new BufferedReader(new InputStreamReader(socketToAgent.getInputStream()));
+        this.threads = threads;
+        this.typeOfService = typeOfService;
         start();
     }
 
@@ -42,13 +48,13 @@ public class Service2ToAgentConnectionThread extends Thread {
         // 0 -> type:execution_request;
         // 1 -> message_id:1000;
         // 2 -> agent_newtork_address:localhost_34020;
-        // 3 -> service_name:Service2;
+        // 3 -> service_name:Service1;
         // 4 -> service_instance:1;
         // 5 -> socket_configuration:localhost_34022;
         // 6 -> plug_configuration:configuration of plugs
         String initialDataToSend = "type:execution_response;" + args.split(";")[1]
                 + ";socket_configuration:localhost_" + args.split(";")[5].split(":")[1].split("_")[1] + ";status:200";
-        System.out.println("Service2 -> Sending registration data: " + initialDataToSend);
+        System.out.println(typeOfService + " -> Sending registration data: " + initialDataToSend);
         writerToAgent.println(initialDataToSend);
         writerToAgent.flush();
 
@@ -58,35 +64,59 @@ public class Service2ToAgentConnectionThread extends Thread {
                     if (requests.size() != 0) {
                         String data = requests.poll();
                         requests.notify();
-                        System.out.println("Service2 -> To the agent sent: " + data);
+                        System.out.println(typeOfService + " -> To the agent sent: " + data);
                         writerToAgent.println(data);
                         writerToAgent.flush();
                     }
                 }
             }
+            System.out.println(typeOfService + " -> Closed thread which is responsible for sending data to Agent.");
         });
 
         Thread processResponses = new Thread(() -> {
             while (!isInterrupted()) {
                 try {
                     String responseFromAgent = readerFromAgent.readLine();
-                    System.out.println("Service2 -> From the agent received: " + responseFromAgent);
+                    System.out.println(typeOfService + " -> From the agent received: " + responseFromAgent);
                     if (!responseFromAgent.split(";")[0].split(":")[1].equalsIgnoreCase("health_control_request")) {
-                        synchronized (responses) {
-                            responses.add(responseFromAgent);
-                            responses.notify();
+                        if (responseFromAgent.split(";")[0].split(":")[1]
+                                .equalsIgnoreCase("graceful_shutdown_request")) {
+                            System.out.println(typeOfService + " -> Received a request to close.");
+                            System.out.println(typeOfService + " -> Closing " + typeOfService + " threads.");
+                            threads.stream().forEach(t -> t.interrupt());
+                            synchronized (requests) {
+                                // TODO: send diffrent status code in case of failure
+                                requests.add("type:graceful_shutdown_response;message_id:"
+                                        + responseFromAgent.split(";")[1].split(":")[1]
+                                        + ";sub_type:Service_instance_to_agent;status:200");
+                                requests.notify();
+                            }
+                            Thread.sleep(2000);
+                            System.out.println(typeOfService + " -> Closing application.");
+                            System.exit(0);
+                        } else {
+                            synchronized (responses) {
+                                responses.add(responseFromAgent);
+                                responses.notify();
+                            }
                         }
+
                     } else {
                         // TODO: replace serviceInstance
                         // TODO: actually check the status of the service
-                        String healthResponse = "type:health_control_response;message_id:10;sub_type:service_instance_to_agent;service_name:Service2;service_instance_id:i;status:200";
+                        String healthResponse = "type:health_control_response;message_id:10;sub_type:service_instance_to_agent;service_name:"
+                                + typeOfService + ";service_instance_id:i;status:200";
                         addRequestToAgent(healthResponse);
                     }
                 } catch (IOException e) {
-                    System.out.println("Service2 Exception: " + e.getMessage());
+                    System.out.println(typeOfService + " Exception: " + e.getMessage());
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    System.out.println(typeOfService + " Exception: " + e.getMessage());
                     e.printStackTrace();
                 }
             }
+            System.out.println(typeOfService + " -> Closed thread which is resposible for reading data from Agent.");
         });
 
         processQueue.start();

@@ -11,7 +11,8 @@ public class TestServer extends Thread {
     private boolean runThread;
 
     public TestServer() throws IOException {
-        serverSocket = new ServerSocket(15000);
+        serverSocket = new ServerSocket(34100);
+        // serverSocket = new ServerSocket(15000);
         runThread = true;
         start();
     }

@@ -47,7 +47,7 @@ public class AgentToManagerConnectionThread extends Thread {
   public void run() {
 
     String initialDataToSend = "type:initiation_request;message_id:10;agent_network_address:localhost_" + myPort
-        + ";service_repository:Service1,Service2,BaaS";
+        + ";service_repository:BaaS,Chat,File,Login,Post,Register";
     writerToManager.println(initialDataToSend);
     writerToManager.flush();
     System.out.println("Agent -> Registers to manager: " + initialDataToSend);

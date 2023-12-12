@@ -40,17 +40,13 @@ public class AgentMaintanceThread extends Thread {
             runProcesArguments.add("-cp");
             String typeOfService = paramsString.split(";")[3].split(":")[1];
             switch (typeOfService) {
-                case "Service1":
-                    runProcesArguments.add("C:\\Users\\An4x\\Desktop\\PROGRAMOWANIE\\TS\\foo\\Service1\\bin\\");
-                    break;
-
-                case "Service2":
-                    runProcesArguments.add("C:\\Users\\An4x\\Desktop\\PROGRAMOWANIE\\TS\\foo\\Service2\\bin\\");
-                    break;
-
                 case "BaaS":
-                    runProcesArguments.add("C:\\Users\\An4x\\Desktop\\PROGRAMOWANIE\\TS\\foo\\BaaS\\bin\\");
+                    runProcesArguments.add("C:\\Users\\An4x\\Desktop\\PROGRAMOWANIE\\TS\\boo\\BaaS\\bin\\");
                     break;
+                default:
+                    runProcesArguments.add("C:\\Users\\An4x\\Desktop\\PROGRAMOWANIE\\TS\\boo\\Service\\bin\\");
+                    break;
+
             }
 
             runProcesArguments.add("App");

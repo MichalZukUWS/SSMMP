@@ -40,11 +40,39 @@ public class BaaSThread extends Thread {
                 String data = readerFromService.readLine();
                 System.out.println("BaaS -> Received data from the Service: " + data);
                 String[] decodedData = deconvertFromProtocole(data);
-                String words = decodedData[3].split(":")[1];
-                data = decodedData[0] + ";" + decodedData[1] + ";" + "data: " + words + " ||| " + words;
-                System.out.println("BaaS -> modified: " + data);
 
-                System.out.println("BaaS -> Sending data to the service: " + data);
+                switch (decodedData[0].split(":")[1]) {
+                    case "register_request":
+                        data = "type:register_response;message_id:" + decodedData[1].split(":")[1]
+                                + ";status:200;data:Register successfull.";
+                        break;
+
+                    case "login_request":
+                        data = "type:login_response;message_id:" + decodedData[1].split(":")[1]
+                                + ";status:200;data:Login successfull.";
+                        break;
+
+                    case "display_posts_request":
+                        data = "type:display_posts_response;message_id:" + decodedData[1].split(":")[1]
+                                + ";status:200;data:Test -> Test text;data:Test2 -> Test2;data:Test3 -> Test3";
+                        break;
+                    case "chat_request":
+                        data = "type:chat_response;message_id:" + decodedData[1].split(":")[1]
+                                + ";status:200;data:Successfully added chat post.";
+                        break;
+
+                    case "file_upload_request":
+                        data = "type:file_upload_response;message_id:" + decodedData[1].split(":")[1]
+                                + ";status:300;data:Needs implementation.";
+                        break;
+
+                    case "file_download_request":
+                        data = "type:file_download_response;message_id:" + decodedData[1].split(":")[1]
+                                + ";status:300;data:Needs implementation.";
+                        break;
+                    default:
+                        break;
+                }
 
                 writerToService.println(data);
                 writerToService.flush();

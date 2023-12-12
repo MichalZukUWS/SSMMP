@@ -16,7 +16,7 @@ public class Manager {
             Socket socket = serverSocket.accept();
             // startPort + X using in testing phase when isn't implemented closing processes
             // with Services
-            new AgentToManagerConnectionThread(socket, startPort + 155, requests);
+            new AgentToManagerConnectionThread(socket, startPort + 320, requests);
         }
     }
 }

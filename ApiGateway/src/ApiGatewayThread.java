@@ -45,11 +45,35 @@ public class ApiGatewayThread extends Thread {
 
                 String data = readerFromClient.readLine();
                 String[] decodedData = deconvertFromProtocole(data);
+                String typeOfService;
+                switch (decodedData[0].split(":")[1]) {
+                    case "register_request":
+                        typeOfService = "Register";
+                        break;
+                    case "login_request":
+                        typeOfService = "Login";
+                        break;
+                    case "display_posts_request":
+                        typeOfService = "Post";
+                        break;
+                    case "chat_request":
+                        typeOfService = "Chat";
+                        break;
+                    case "file_upload_request":
+                        typeOfService = "File";
+                        break;
+                    case "file_download_request":
+                        typeOfService = "File";
+                        break;
+                    default:
+                        typeOfService = null;
+                        break;
+                }
                 // checking if is in map thread with connection with service from request
                 synchronized (threadsWithServices) {
                     // if is in map add request to requests list
-                    if (threadsWithServices.keySet().contains(decodedData[0].split(":")[1])) {
-                        threadsWithServices.get(decodedData[0].split(":")[1]).send(socketFromClient, data);
+                    if (threadsWithServices.keySet().contains(typeOfService)) {
+                        threadsWithServices.get(typeOfService).send(socketFromClient, data);
                         threadsWithServices.notify();
                     }
                     // if isn't create thread with connection to specific service and give request
