@@ -86,16 +86,18 @@ public class ApiGatewayThread extends Thread {
 
             }
         } catch (IOException e) {
-            System.out.println(
-                    "Api Gateway Exception in thread which is responsible for reading data from client and sending forward to Service: "
-                            + e.getMessage());
+            // System.out.println(
+            // "Api Gateway Exception in thread which is responsible for reading data from
+            // client and sending forward to Service: "
+            // + e.getMessage());
             e.printStackTrace();
             interrupt();
         } catch (NullPointerException e) {
-            System.out.println(
-                    "Api Gateway Exception in thread which is responsible for reading data from client and sending forward to Service: "
-                            + e.getMessage());
-            e.printStackTrace();
+            // System.out.println(
+            // "Api Gateway Exception in thread which is responsible for reading data from
+            // client and sending forward to Service: "
+            // + e.getMessage());
+            // e.printStackTrace();
             interrupt();
         }
 

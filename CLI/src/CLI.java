@@ -8,7 +8,6 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Base64;
-import java.util.Scanner;
 
 class CLI {
 
@@ -56,6 +55,7 @@ class CLI {
         String login = null;
         String password = null;
         String choiceString = null;
+        String chatMessage = null;
         while (choice != 9) {
             System.out.println(commands);
             message = null;
@@ -89,7 +89,10 @@ class CLI {
                     break;
                 case 4:
                     if (logged) {
-                        message = "type:chat_request;message_id:" + message_id + "";
+                        System.out.println("Provide chat message(max 255 characters):");
+                        chatMessage = reader.readLine();
+                        message = "type:chat_request;message_id:" + message_id + ";data:" + login + ";data:"
+                                + chatMessage;
                     } else {
                         System.out.println("Yoo need to login first.");
                     }
@@ -141,7 +144,7 @@ class CLI {
                 writerToApiGateway.flush();
 
                 String response = readerFromApiGateway.readLine();
-                System.out.println("CLI got response: " + response);
+                // System.out.println("CLI got response: " + response);
                 String[] decodedData = response.split(";");
                 int status = Integer.parseInt(decodedData[2].split(":")[1]);
                 switch (decodedData[0].split(":")[1]) {
@@ -208,9 +211,12 @@ class CLI {
 
                 }
             }
-            System.out.println("Type in anything and press enter to continue.");
-            message = reader.readLine();
-            clearConsole();
+            if (choice != 9) {
+                System.out.println("Type in anything and press enter to continue.");
+                message = reader.readLine();
+                clearConsole();
+            }
+
         }
 
         reader.close();

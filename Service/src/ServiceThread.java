@@ -37,7 +37,6 @@ public class ServiceThread extends Thread {
         this.myPort = myPort;
         this.threads = threads;
         this.typeOfService = typeOfService;
-        this.threads.add(this);
         start();
     }
 
@@ -45,14 +44,206 @@ public class ServiceThread extends Thread {
         return data.split(";");
     }
 
+    public void closeConnectionWithBaaS(String message) {
+        switch (typeOfService) {
+            case "Chat":
+                System.out.println("|| " + typeOfService + " -> || Closing connection with BaaS.");
+                break;
+
+            case "Login":
+                System.out.println("__ " + typeOfService + " -> __ Closing connection with BaaS.");
+                break;
+            case "File":
+                System.out.println("++ " + typeOfService + " -> ++ Closing connection with BaaS.");
+                break;
+            case "Post":
+                System.out.println("@@ " + typeOfService + " -> @@ Closing connection with BaaS.");
+                break;
+            case "Register":
+                System.out.println("!! " + typeOfService + " -> !! Closing connection with BaaS.");
+                break;
+        }
+        if (socketToService != null) {
+            writerToService.close();
+            try {
+                readerFromService.close();
+                socketToService.close();
+            } catch (IOException e) {
+                switch (typeOfService) {
+                    case "Chat":
+                        System.out.println("|| " + typeOfService + " -> || Exception: " + e.getMessage());
+                        break;
+
+                    case "Login":
+                        System.out.println("__ " + typeOfService + " -> __ Exception: " + e.getMessage());
+                        break;
+                    case "File":
+                        System.out.println("++ " + typeOfService + " -> ++ Exception: " + e.getMessage());
+                        break;
+                    case "Post":
+                        System.out.println("@@ " + typeOfService + " -> @@ Exception: " + e.getMessage());
+                        break;
+                    case "Register":
+                        System.out.println("!! " + typeOfService + " -> !! Exception: " + e.getMessage());
+                        break;
+                }
+                e.printStackTrace();
+            }
+
+            // TODO: add some cheking maybe in catch thread?
+            String dataToAgent = "type:source_service_session_close_response;message_id:"
+                    + message.split(";")[1].split(":")[1] + ";sub_type:source_Service_to_agent;status:200";
+            serviceToAgentConnectionThread.addRequestToAgent(dataToAgent);
+            // Service -> source, BaaS -> dest
+            dataToAgent = "type:source_service_session_close_info;message_id:"
+                    + serviceInstance
+                    + ";sub_type:source_service_to_agent;source_service_name:" + typeOfService
+                    + ";source_service_instance_network_address:localhost_"
+                    + myPort
+                    + ";source_service_instance_id:" + serviceInstance +
+                    ";source_plug_name:P;source_plug_port:"
+                    + myPort
+                    + ";dest_service_name:BaaS;dest_service_instance_network_address:localhost_"
+                    + myPort
+                    + ";dest_socket_name:S;dest_socket_port:" + baasPort
+                    + ";dest_socket_new_port:l";
+
+            serviceToAgentConnectionThread.addRequestToAgent(dataToAgent);
+        }
+    }
+
+    @Override
+    public void interrupt() {
+        switch (typeOfService) {
+            case "Chat":
+                System.out.println(
+                        "|| " + typeOfService + " -> || Handling the closing procedure by closing connections.");
+                break;
+
+            case "Login":
+                System.out.println(
+                        "__ " + typeOfService + " -> __ Handling the closing procedure by closing connections.");
+                break;
+            case "File":
+                System.out.println(
+                        "++ " + typeOfService + " -> ++ Handling the closing procedure by closing connections.");
+                break;
+            case "Post":
+                System.out.println(
+                        "@@ " + typeOfService + " -> @@ Handling the closing procedure by closing connections.");
+                break;
+            case "Register":
+                System.out.println(
+                        "!! " + typeOfService + " -> !! Handling the closing procedure by closing connections.");
+                break;
+        }
+        writerToApiGateway.close();
+        try {
+            readerFromApiGateway.close();
+            socketToApiGateway.close();
+        } catch (IOException e) {
+            switch (typeOfService) {
+                case "Chat":
+                    System.out.println("|| " + typeOfService + " -> || Exception: " + e.getMessage());
+                    break;
+
+                case "Login":
+                    System.out.println("__ " + typeOfService + " -> __ Exception: " + e.getMessage());
+                    break;
+                case "File":
+                    System.out.println("++ " + typeOfService + " -> ++ Exception: " + e.getMessage());
+                    break;
+                case "Post":
+                    System.out.println("@@ " + typeOfService + " -> @@ Exception: " + e.getMessage());
+                    break;
+                case "Register":
+                    System.out.println("!! " + typeOfService + " -> !! Exception: " + e.getMessage());
+                    break;
+            }
+            e.printStackTrace();
+        }
+
+        // Api Gateway -> source, Service -> dest
+        // TODO: 34100 -> Api Gateway port
+        String dataToAgent = "type:dest_service_session_close_info;message_id:" + serviceInstance
+                + ";sub_type:dest_service_to_agent;source_service_instance_network_address:localhost_" + 34100
+                + ";source_plug_name:P;source_plug_port:" + 34100
+                + ";dest_service_name:" + typeOfService + ";dest_service_instance_network_address:localhost_" + myPort
+                + ";dest_service_instance_id:" + serviceInstance + ";dest_socket_name:S;dest_socket_port:" + myPort
+                + ";dest_socket_new_port:l";
+        serviceToAgentConnectionThread.addRequestToAgent(dataToAgent);
+        if (socketToService != null) {
+            writerToService.close();
+            try {
+                readerFromService.close();
+                socketToService.close();
+            } catch (IOException e) {
+                switch (typeOfService) {
+                    case "Chat":
+                        System.out.println("|| " + typeOfService + " -> || Exception: " + e.getMessage());
+                        break;
+                    case "Login":
+                        System.out.println("__ " + typeOfService + " -> __ Exception: " + e.getMessage());
+                        break;
+                    case "File":
+                        System.out.println("++ " + typeOfService + " -> ++ Exception: " + e.getMessage());
+                        break;
+                    case "Post":
+                        System.out.println("@@ " + typeOfService + " -> @@ Exception: " + e.getMessage());
+                        break;
+                    case "Register":
+                        System.out.println("!! " + typeOfService + " -> !! Exception: " + e.getMessage());
+                        break;
+                }
+                e.printStackTrace();
+            }
+
+            // Service -> source, BaaS -> dest
+            dataToAgent = "type:source_service_session_close_info;message_id:"
+                    + serviceInstance
+                    + ";sub_type:source_service_to_agent;source_service_name:" + typeOfService
+                    + ";source_service_instance_network_address:localhost_"
+                    + myPort
+                    + ";source_service_instance_id:" + serviceInstance +
+                    ";source_plug_name:P;source_plug_port:"
+                    + myPort
+                    + ";dest_service_name:BaaS;dest_service_instance_network_address:localhost_"
+                    + myPort
+                    + ";dest_socket_name:S;dest_socket_port:" + baasPort
+                    + ";dest_socket_new_port:l";
+
+            serviceToAgentConnectionThread.addRequestToAgent(dataToAgent);
+        }
+    }
+
     @Override
     public void run() {
+        synchronized (threads) {
+            threads.add(this);
+            threads.notify();
+        }
         try {
             while (!isInterrupted()) {
                 send = true;
                 // receiving and modifying data
                 String data = readerFromApiGateway.readLine();
-                System.out.println(typeOfService + " -> Received data from Api Gateway: " + data);
+                switch (typeOfService) {
+                    case "Chat":
+                        System.out.println("|| " + typeOfService + " -> || Received data from Api Gateway: " + data);
+                        break;
+                    case "Login":
+                        System.out.println("__ " + typeOfService + " -> __ Received data from Api Gateway: " + data);
+                        break;
+                    case "File":
+                        System.out.println("++ " + typeOfService + " -> ++ Received data from Api Gateway: " + data);
+                        break;
+                    case "Post":
+                        System.out.println("@@ " + typeOfService + " -> @@ Received data from Api Gateway: " + data);
+                        break;
+                    case "Register":
+                        System.out.println("!! " + typeOfService + " -> !! Received data from Api Gateway: " + data);
+                        break;
+                }
                 String[] decodedData = deconvertFromProtocole(data);
                 serviceToAgentConnectionThread.addRequestToAgent(
                         "type:process_data;message_id:" + decodedData[1].split(":")[1]
@@ -76,6 +267,14 @@ public class ServiceThread extends Thread {
                                     + ";status:300;data:Your password needs to be at least 8 charakters long.";
                         }
                         break;
+                    case "Chat":
+                        String message = decodedData[3].split(":")[1];
+                        if (message.length() > 255) {
+                            send = false;
+                            data = "type:chat_response;message_id:" + decodedData[1].split(":")[1]
+                                    + ";status:300;data:Provided to long message.";
+                        }
+                        break;
                     // TODO: add validation of other services?
                     default:
                         break;
@@ -89,7 +288,33 @@ public class ServiceThread extends Thread {
                                 + ";sub_type:service_to_agent;source_service_name:" + typeOfService
                                 + ";source_service_instance_id:"
                                 + serviceInstance + ";source_plug_name:P;dest_service_name:BaaS;dest_socket_name:S";
-                        System.out.println(typeOfService + " -> Adds to the queue of requests to the Agent: " + toSend);
+                        switch (typeOfService) {
+                            case "Chat":
+                                System.out.println(
+                                        "|| " + typeOfService + " -> || Adds to the queue of requests to the Agent: "
+                                                + toSend);
+                                break;
+                            case "Login":
+                                System.out.println(
+                                        "__ " + typeOfService + " -> __ Adds to the queue of requests to the Agent: "
+                                                + toSend);
+                                break;
+                            case "File":
+                                System.out.println(
+                                        "++ " + typeOfService + " -> ++ Adds to the queue of requests to the Agent: "
+                                                + toSend);
+                                break;
+                            case "Post":
+                                System.out.println(
+                                        "@@ " + typeOfService + " -> @@ Adds to the queue of requests to the Agent: "
+                                                + toSend);
+                                break;
+                            case "Register":
+                                System.out.println(
+                                        "!! " + typeOfService + " -> !! Adds to the queue of requests to the Agent: "
+                                                + toSend);
+                                break;
+                        }
 
                         serviceToAgentConnectionThread.addRequestToAgent(toSend);
 
@@ -99,7 +324,28 @@ public class ServiceThread extends Thread {
                                 try {
                                     responses.wait();
                                 } catch (InterruptedException e) {
-                                    System.out.println(typeOfService + " Exception: " + e.getMessage());
+                                    switch (typeOfService) {
+                                        case "Chat":
+                                            System.out.println(
+                                                    "|| " + typeOfService + " -> || Exception: " + e.getMessage());
+                                            break;
+                                        case "Login":
+                                            System.out.println(
+                                                    "__ " + typeOfService + " -> __ Exception: " + e.getMessage());
+                                            break;
+                                        case "File":
+                                            System.out.println(
+                                                    "++ " + typeOfService + " -> ++ Exception: " + e.getMessage());
+                                            break;
+                                        case "Post":
+                                            System.out.println(
+                                                    "@@ " + typeOfService + " -> @@ Exception: " + e.getMessage());
+                                            break;
+                                        case "Register":
+                                            System.out.println(
+                                                    "!! " + typeOfService + " -> !! Exception: " + e.getMessage());
+                                            break;
+                                    }
                                     e.printStackTrace();
                                 }
                             }
@@ -107,9 +353,33 @@ public class ServiceThread extends Thread {
                             responses.notify();
                         }
 
-                        System.out.println(
-                                typeOfService + " -> Received data from Agent from the queue: " + responseFromAgent);
-
+                        switch (typeOfService) {
+                            case "Chat":
+                                System.out.println(
+                                        "|| " + typeOfService + " -> || Received data from Agent from the queue: "
+                                                + responseFromAgent);
+                                break;
+                            case "Login":
+                                System.out.println(
+                                        "__ " + typeOfService + " -> __ Received data from Agent from the queue: "
+                                                + responseFromAgent);
+                                break;
+                            case "File":
+                                System.out.println(
+                                        "++ " + typeOfService + " -> ++ Received data from Agent from the queue: "
+                                                + responseFromAgent);
+                                break;
+                            case "Post":
+                                System.out.println(
+                                        "@@ " + typeOfService + " -> @@ Received data from Agent from the queue: "
+                                                + responseFromAgent);
+                                break;
+                            case "Register":
+                                System.out.println(
+                                        "!! " + typeOfService + " -> !! Received data from Agent from the queue: "
+                                                + responseFromAgent);
+                                break;
+                        }
                         baasPort = Integer.parseInt(responseFromAgent.split(";")[5].split(":")[1]);
 
                         socketToService = new Socket("localhost", baasPort);
@@ -123,21 +393,92 @@ public class ServiceThread extends Thread {
                                 + ";dest_socket_new_port:"
                                 + baasPort;
 
-                        System.out.println(typeOfService + " -> Sending data to the agent: " + toSend);
+                        switch (typeOfService) {
+                            case "Chat":
+                                System.out.println(
+                                        "|| " + typeOfService + " -> || Sending data to the agent: " + toSend);
+                                break;
+                            case "Login":
+                                System.out.println(
+                                        "__ " + typeOfService + " -> __ Sending data to the agent: " + toSend);
+                                break;
+                            case "File":
+                                System.out.println(
+                                        "++ " + typeOfService + " -> ++ Sending data to the agent: " + toSend);
+                                break;
+                            case "Post":
+                                System.out.println(
+                                        "@@ " + typeOfService + " -> @@ Sending data to the agent: " + toSend);
+                                break;
+                            case "Register":
+                                System.out.println(
+                                        "!! " + typeOfService + " -> !! Sending data to the agent: " + toSend);
+                                break;
+                        }
 
                         serviceToAgentConnectionThread.addRequestToAgent(toSend);
                     }
 
-                    System.out.println(typeOfService + " -> Sending data to Baas: " + data);
+                    switch (typeOfService) {
+                        case "Chat":
+                            System.out.println(
+                                    "|| " + typeOfService + " -> || Sending data to Baas: " + data);
+                            break;
+                        case "Login":
+                            System.out.println(
+                                    "__ " + typeOfService + " -> __ Sending data to Baas: " + data);
+                            break;
+                        case "File":
+                            System.out.println(
+                                    "++ " + typeOfService + " -> ++ Sending data to Baas: " + data);
+                            break;
+                        case "Post":
+                            System.out.println(
+                                    "@@ " + typeOfService + " -> @@ Sending data to Baas: " + data);
+                            break;
+                        case "Register":
+                            System.out.println(
+                                    "!! " + typeOfService + " -> !! Sending data to Baas: " + data);
+                            break;
+                    }
 
                     writerToService.println(data);
                     writerToService.flush();
 
                     String responseFromService = readerFromService.readLine();
 
-                    System.out.println(typeOfService
-                            + " -> Received data from BaaS, and sending response to Api Gateway: "
-                            + responseFromService);
+                    switch (typeOfService) {
+                        case "Chat":
+                            System.out.println(
+                                    "|| " + typeOfService
+                                            + " -> || Received data from BaaS, and sending response to Api Gateway: "
+                                            + responseFromService);
+                            break;
+                        case "Login":
+                            System.out.println(
+                                    "__ " + typeOfService
+                                            + " -> __ Received data from BaaS, and sending response to Api Gateway: "
+                                            + responseFromService);
+                            break;
+                        case "File":
+                            System.out.println(
+                                    "++ " + typeOfService
+                                            + " -> ++ Received data from BaaS, and sending response to Api Gateway: "
+                                            + responseFromService);
+                            break;
+                        case "Post":
+                            System.out.println(
+                                    "@@ " + typeOfService
+                                            + " -> @@ Received data from BaaS, and sending response to Api Gateway: "
+                                            + responseFromService);
+                            break;
+                        case "Register":
+                            System.out.println(
+                                    "!! " + typeOfService
+                                            + " -> !! Received data from BaaS, and sending response to Api Gateway: "
+                                            + responseFromService);
+                            break;
+                    }
 
                     writerToApiGateway.println(responseFromService);
                     writerToApiGateway.flush();
@@ -149,55 +490,83 @@ public class ServiceThread extends Thread {
             }
 
         } catch (IOException e) {
-            System.out.println(typeOfService + " Exception: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        System.out.println(typeOfService + " -> Handle the closing procedure.");
-        writerToApiGateway.close();
-        try {
-            readerFromApiGateway.close();
-            socketToApiGateway.close();
-        } catch (IOException e) {
-            System.out.println(typeOfService + " Exception: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        // Api Gateway -> source, Service -> dest
-        // TODO: what about message_id?
-        // TODO: 123 -> Api Gateway port
-        String dataToAgent = "type:dest_service_session_close_info;message_id:" + 10
-                + ";sub_type:dest_service_to_agent;source_service_instance_network_address:localhost_" + 123
-                + ";source_plug_name:P;source_plug_port:" + 123
-                + ";dest_service_name:" + typeOfService + ";dest_service_instance_network_address:localhost_" + myPort
-                + ";dest_service_instance_id:" + serviceInstance + ";dest_socket_name:S;dest_socket_port:" + myPort
-                + ";dest_socket_new_port:l";
-        serviceToAgentConnectionThread.addRequestToAgent(dataToAgent);
-        if (socketToService != null) {
-            writerToService.close();
-            try {
-                readerFromService.close();
-                socketToService.close();
-            } catch (IOException e) {
-                System.out.println(typeOfService + " Exception: " + e.getMessage());
-                e.printStackTrace();
+            switch (typeOfService) {
+                case "Chat":
+                    System.out.println(
+                            "|| " + typeOfService + " -> || Exception: " + e.getMessage());
+                    break;
+                case "Login":
+                    System.out.println(
+                            "__ " + typeOfService + " -> __ Exception: " + e.getMessage());
+                    break;
+                case "File":
+                    System.out.println(
+                            "++ " + typeOfService + " -> ++ Exception: " + e.getMessage());
+                    break;
+                case "Post":
+                    System.out.println(
+                            "@@ " + typeOfService + " -> @@ Exception: " + e.getMessage());
+                    break;
+                case "Register":
+                    System.out.println(
+                            "!! " + typeOfService + " -> !! Exception: " + e.getMessage());
+                    break;
             }
-
-            // Service -> source, BaaS -> dest
-            // TODO: what about message_id?
-            dataToAgent = "type:source_service_session_close_info;message_id"
-                    + 10
-                    + ";sub_type:source_service_to_agent;source_service_name:" + typeOfService
-                    + ";source_service_instance_network_address:localhost_"
-                    + myPort
-                    + ";source_service_instance_id:100;source_plug_name:P;source_plug_port:"
-                    + myPort
-                    + ";dest_service_name:BaaS;dest_service_instance_network_address:localhost_" + myPort
-                    + ";dest_socket_name:S;dest_socket_port:" + baasPort
-                    + ";dest_socket_new_port:l";
-
-            serviceToAgentConnectionThread.addRequestToAgent(dataToAgent);
+            // e.printStackTrace();
+            // interrupt();
         }
+
+        // System.out.println(typeOfService + " -> Handling the closing procedure by
+        // closing connections.");
+        // writerToApiGateway.close();
+        // try {
+        // readerFromApiGateway.close();
+        // socketToApiGateway.close();
+        // } catch (IOException e) {
+        // System.out.println(typeOfService + " -> Exception: " + e.getMessage());
+        // e.printStackTrace();
+        // }
+
+        // // Api Gateway -> source, Service -> dest
+        // // TODO: 34100 -> Api Gateway port
+        // String dataToAgent = "type:dest_service_session_close_info;message_id:" +
+        // serviceInstance
+        // +
+        // ";sub_type:dest_service_to_agent;source_service_instance_network_address:localhost_"
+        // + 34100
+        // + ";source_plug_name:P;source_plug_port:" + 34100
+        // + ";dest_service_name:" + typeOfService +
+        // ";dest_service_instance_network_address:localhost_" + myPort
+        // + ";dest_service_instance_id:" + serviceInstance +
+        // ";dest_socket_name:S;dest_socket_port:" + myPort
+        // + ";dest_socket_new_port:l";
+        // serviceToAgentConnectionThread.addRequestToAgent(dataToAgent);
+        // if (socketToService != null) {
+        // writerToService.close();
+        // try {
+        // readerFromService.close();
+        // socketToService.close();
+        // } catch (IOException e) {
+        // System.out.println(typeOfService + " -> Exception: " + e.getMessage());
+        // e.printStackTrace();
+        // }
+
+        // // Service -> source, BaaS -> dest
+        // dataToAgent = "type:source_service_session_close_info;message_id"
+        // + serviceInstance
+        // + ";sub_type:source_service_to_agent;source_service_name:" + typeOfService
+        // + ";source_service_instance_network_address:localhost_"
+        // + myPort
+        // + ";source_service_instance_id:" + serviceInstance +
+        // ";source_plug_name:P;source_plug_port:"
+        // + myPort
+        // + ";dest_service_name:BaaS;dest_service_instance_network_address:localhost_"
+        // + myPort
+        // + ";dest_socket_name:S;dest_socket_port:" + baasPort
+        // + ";dest_socket_new_port:l";
+
+        // serviceToAgentConnectionThread.addRequestToAgent(dataToAgent);
+        // }
 
     }
 }

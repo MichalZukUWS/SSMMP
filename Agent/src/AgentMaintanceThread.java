@@ -14,7 +14,6 @@ public class AgentMaintanceThread extends Thread {
     // @Override
     // public void interrupt() {
     // process.destroy();
-    // // Poczekaj na zakończenie procesu
     // try {
     // process.waitFor();
     // } catch (InterruptedException e) {
@@ -23,7 +22,6 @@ public class AgentMaintanceThread extends Thread {
 
     // if (process.isAlive()) {
     // process.destroyForcibly();
-    // // Poczekaj na zakończenie procesu
     // try {
     // process.waitFor();
     // } catch (InterruptedException e) {
@@ -41,10 +39,10 @@ public class AgentMaintanceThread extends Thread {
             String typeOfService = paramsString.split(";")[3].split(":")[1];
             switch (typeOfService) {
                 case "BaaS":
-                    runProcesArguments.add("C:\\Users\\An4x\\Desktop\\PROGRAMOWANIE\\TS\\boo\\BaaS\\bin\\");
+                    runProcesArguments.add("..\\BaaS\\bin\\;..\\mysql-connector-j-8.2.0\\mysql-connector-j-8.2.0.jar");
                     break;
                 default:
-                    runProcesArguments.add("C:\\Users\\An4x\\Desktop\\PROGRAMOWANIE\\TS\\boo\\Service\\bin\\");
+                    runProcesArguments.add("..\\Service\\bin\\");
                     break;
 
             }

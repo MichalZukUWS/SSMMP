@@ -4,6 +4,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 
@@ -12,36 +13,37 @@ public class AgentToManagerConnectionThread extends Thread {
   private Socket socketToManager;
   private PrintWriter writerToManager;
   private BufferedReader readerFromManager;
-  private HashMap<Integer, ServiceToAgentConnectionThread> servicePorts;
   private LinkedList<ServiceToAgentMessageWithPort> requests;
   private HashMap<Integer, AgentMaintanceThread> threadsWithProcess;
-  private HashMap<Integer, ServiceToAgentConnectionThread> sessionRequestMap;
+  private HashMap<Integer, AgentToServiceConnectionThread> sessionRequestMap;
   private int myPort;
+  private ArrayList<ServiceConnectionWithAgentEntry> serivcePorts;
 
-  public AgentToManagerConnectionThread(HashMap<Integer, ServiceToAgentConnectionThread> servicePorts,
-      LinkedList<ServiceToAgentMessageWithPort> requests, int myPort)
+  public AgentToManagerConnectionThread(HashMap<Integer, AgentToServiceConnectionThread> servicePorts,
+      LinkedList<ServiceToAgentMessageWithPort> requests, int myPort,
+      ArrayList<ServiceConnectionWithAgentEntry> serivcePorts)
       throws UnknownHostException, IOException {
     socketToManager = new Socket("localhost", 34010);
     writerToManager = new PrintWriter(socketToManager.getOutputStream());
     readerFromManager = new BufferedReader(new InputStreamReader(socketToManager.getInputStream()));
-    this.servicePorts = servicePorts;
     this.threadsWithProcess = new HashMap<>();
     this.requests = requests;
     sessionRequestMap = new HashMap<>();
     this.myPort = myPort;
+    this.serivcePorts = serivcePorts;
     start();
   }
 
-  // public void addDataFromService(String dataToManager,
-  // int message_id,
-  // ServiceToAgentConnectionThread serviceToAgentConnectionThread) {
-  // synchronized (requests) {
-  // requests.add(new ServiceToAgentMessageWithPort(dataToManager,
-  // message_id,
-  // serviceToAgentConnectionThread));
-  // // requests.notify();
-  // }
-  // }
+  public void addDataFromService(String dataToManager,
+      int message_id,
+      AgentToServiceConnectionThread serviceToAgentConnectionThread) {
+    synchronized (requests) {
+      requests.add(new ServiceToAgentMessageWithPort(dataToManager,
+          message_id,
+          serviceToAgentConnectionThread));
+      requests.notify();
+    }
+  }
 
   @Override
   public void run() {
@@ -50,10 +52,10 @@ public class AgentToManagerConnectionThread extends Thread {
         + ";service_repository:BaaS,Chat,File,Login,Post,Register";
     writerToManager.println(initialDataToSend);
     writerToManager.flush();
-    System.out.println("Agent -> Registers to manager: " + initialDataToSend);
+    System.out.println("-- Agent -> -- Registers to manager: " + initialDataToSend);
     try {
       String initialResponse = readerFromManager.readLine();
-      System.out.println("Agent -> After registering, got a response from Manager: " + initialResponse);
+      System.out.println("-- Agent -> -- After registering, got a response from Manager: " + initialResponse);
     } catch (IOException e) {
       System.out.println("Agent Exception: " + e.getMessage());
       e.printStackTrace();
@@ -66,66 +68,93 @@ public class AgentToManagerConnectionThread extends Thread {
         try {
           if (readerFromManager.ready()) {
             String data = readerFromManager.readLine();
-            System.out.println("Agent -> Received data from Manager: " + data);
+            System.out.println("-- Agent -> -- Received data from Manager: " + data);
             int sourcePort = -1;
             String[] decodedData = data.split(";");
             String typeOfRequest = decodedData[0].split(":")[1];
             switch (typeOfRequest) {
               case "execution_request":
                 int port = Integer.parseInt(decodedData[5].split(":")[1].split("_")[1]);
-                System.out.println("Agent -> Processing the service launch");
+                System.out.println("-- Agent -> -- Processing the service launch");
                 // 1. Starting a new thread; launching process.
-                threadsWithProcess.put(port, new AgentMaintanceThread(data));
-                // synchronized (servicePorts) {
-                // servicePorts.put(port, null);
-                // servicePorts.notify();
-                // }
+                synchronized (serivcePorts) {
+                  serivcePorts.add(
+                      new ServiceConnectionWithAgentEntry(port, Integer.parseInt(decodedData[4].split(":")[1]),
+                          Integer.parseInt(decodedData[1].split(":")[1]), decodedData[3].split(":")[1], null));
+                  serivcePorts.notify();
+                }
+                new AgentMaintanceThread(data);
                 // 2a. Waiting for service's response.
                 break;
 
               case "session_response":
                 int messageID = Integer.parseInt(decodedData[1].split(":")[1]);
                 synchronized (sessionRequestMap) {
-                  ServiceToAgentConnectionThread sendResponseThead = sessionRequestMap.get(messageID);
-                  System.out.println("Agent -> Retrieves thread from map with messageID: " +
+                  AgentToServiceConnectionThread sendResponseThead = sessionRequestMap.get(messageID);
+                  System.out.println("-- Agent -> -- Retrieves thread from map with messageID: " +
                       messageID);
                   sessionRequestMap.remove(messageID);
+                  sendResponseThead.addRequestToService(data.replace("Manager_to_agent", "agent_to_service"));
                   sessionRequestMap.notify();
-                  sendResponseThead
-                      .addRequestToService(data.replace("Manager_to_agent", "agent_to_service"));
                 }
 
                 break;
               case "source_service_session_close_request":
-                sourcePort = Integer
-                    .parseInt(data.split(";")[4].split(":")[1].split("_")[1]);
                 // 1. Sending to the ServiceA (ServiceToAgentConnectionThread).
-                synchronized (servicePorts) {
-                  servicePorts.get(sourcePort).addRequestToService(data);
-                  servicePorts.notify();
+                synchronized (serivcePorts) {
+
+                  serivcePorts.stream()
+                      .filter(s -> s.getPort() == Integer.parseInt(data.split(";")[4].split(":")[1].split("_")[1]))
+                      .findFirst()
+                      .ifPresentOrElse(
+                          e -> {
+                            e.getServiceToAgentConnectionThread()
+                                .addRequestToService(data.replace("Manager_to_agent", "agent_to_source_Service"));
+                          },
+                          () -> {
+                            System.out.println(
+                                "-- Agent -> -- Received request to close Service to another Service connection which isn't connected to him.");
+                          });
+                  serivcePorts.notify();
                 }
                 // 2a. Waiting for service's response.
                 break;
 
               case "graceful_shutdown_request":
-                sourcePort = Integer
-                    .parseInt(data.split(";")[4].split(":")[1]);
-
                 // 1. Send to Service A(ServiceToAgentConnectionThread).
-                synchronized (servicePorts) {
-                  servicePorts.get(sourcePort)
-                      .addRequestToService(data.replace("Manager_to_agent", "agent_to_Service_instance"));
-                  servicePorts.notify();
+                synchronized (serivcePorts) {
+                  serivcePorts.stream()
+                      .filter(s -> s.getServiceInstance() == Integer.parseInt(data.split(";")[4].split(":")[1]))
+                      .findFirst()
+                      .ifPresentOrElse(
+                          entry -> {
+                            System.out.println("-- Agent -> -- Set message_id in graceful_shutdown_request: " +
+                                Integer.parseInt(data.split(";")[1].split(":")[1]));
+                            entry.setMessage_id(Integer.parseInt(data.split(";")[1].split(":")[1]));
+                            entry.getServiceToAgentConnectionThread()
+                                .addRequestToService(data.replace("Manager_to_agent",
+                                    "agent_to_Service_instance"));
+                          },
+                          () -> {
+                            System.out.println(
+                                "-- Agent -> -- Received request to soft shut down Service which isn't connected to him.");
+                          });
+                  serivcePorts.notify();
                 }
                 // 2a. Waiting for service's response.
                 break;
 
               case "hard_shutdown_request":
-                sourcePort = Integer.parseInt(data.split(";")[4].split(":")[1]);
-                // 1. Closing the connection thread.
-                synchronized (servicePorts) {
-                  servicePorts.get(sourcePort).interrupt();
-                  servicePorts.notify();
+                // sourcePort = Integer.parseInt(data.split(";")[4].split(":")[1]);
+                synchronized (serivcePorts) {
+                  serivcePorts.stream()
+                      .filter(s -> s.getPort() == Integer.parseInt(data.split(";")[4].split(":")[1]))
+                      .findFirst()
+                      .ifPresentOrElse(
+                          entry -> entry.getServiceToAgentConnectionThread().interrupt(),
+                          () -> System.out.println(
+                              "-- Agent -> -- Received request to hard shut down service which isn't connected to him."));
+                  serivcePorts.notify();
                 }
                 // 2. Termination of the thread in which the service process is running.
                 threadsWithProcess.get(sourcePort).interrupt();
@@ -156,7 +185,7 @@ public class AgentToManagerConnectionThread extends Thread {
             if (dataObject != null) {
               String dataString = dataObject.getMessage();
               int messageID = dataObject.getMessage_id();
-              ServiceToAgentConnectionThread thread = dataObject.getServiceToAgentConnectionThread();
+              AgentToServiceConnectionThread thread = dataObject.getServiceToAgentConnectionThread();
 
               String[] decodedData = dataString.split(";");
               String typeOfRequest = decodedData[0].split(":")[1];
@@ -168,21 +197,21 @@ public class AgentToManagerConnectionThread extends Thread {
                 // response, which needs to be sent to the manager
                 case "execution_response":
                   // 2b. Send a message back to the manager.
-                  System.out.println("Agent -> Sends data to Manager: " + dataString);
+                  System.out.println("-- Agent -> -- Sends data to Manager: " + dataString);
                   writerToManager.println(dataString);
                   writerToManager.flush();
                   break;
 
                 case "source_service_session_close_response":
                   // 2b. Send back to the manager the response to close the connection.
-                  System.out.println("Agent -> Sends data to Manager: " + dataObject.getMessage());
+                  System.out.println("-- Agent -> -- Sends data to Manager: " + dataObject.getMessage());
                   writerToManager.println(dataObject.getMessage());
                   writerToManager.flush();
                   break;
 
                 case "graceful_shutdown_response":
                   // 2b. Send back a response to the manager to close the service.
-                  System.out.println("Agent -> Sends data to Manager: " + dataObject.getMessage());
+                  System.out.println("-- Agent -> -- Sends data to Manager: " + dataObject.getMessage());
                   writerToManager
                       .println(dataObject.getMessage().replace("Service_instance_to_agent", "agent_to_Manager"));
                   writerToManager.flush();
@@ -191,28 +220,25 @@ public class AgentToManagerConnectionThread extends Thread {
                 // -----------------------Requests from the service-----------------------
                 case "session_request":
                   synchronized (sessionRequestMap) {
-                    // System.out.println("Agent -> Adding messageID to the map (sessionRequestMap):
-                    // "
-                    // + messageID);
                     sessionRequestMap.put(messageID,
                         thread);
                     sessionRequestMap.notify();
                   }
                   dataString = dataString.replace("service_to_agent", "agent_to_Manager");
-                  System.out.println("Agent -> Sends data to Manager: " + dataString);
+                  System.out.println("-- Agent -> -- Sends data to Manager: " + dataString);
                   writerToManager.println(dataString);
                   writerToManager.flush();
                   break;
                 case "source_service_session_close_info":
                   dataString = dataString.replace("service_to_agent", "agent_to_Manager");
-                  System.out.println("Agent -> Sends data to Manager: " + dataString);
+                  System.out.println("-- Agent -> -- Sends data to Manager: " + dataString);
                   writerToManager.println(dataString);
                   writerToManager.flush();
                   break;
 
                 case "dest_service_session_close_info":
                   dataString = dataString.replace("service_to_agent", "agent_to_Manager");
-                  System.out.println("Agent -> Sends data to Manager: " + dataString);
+                  System.out.println("-- Agent -> -- Sends data to Manager: " + dataString);
                   writerToManager.println(dataString);
                   writerToManager.flush();
                   break;
@@ -220,32 +246,32 @@ public class AgentToManagerConnectionThread extends Thread {
                 case "session_ack":
                   dataString = dataObject.getMessage().replace("service_to_agent",
                       "agent_to_Manager");
-                  System.out.println("Agent -> Sends data to Manager: " + dataString);
+                  System.out.println("-- Agent -> -- Sends data to Manager: " + dataString);
                   writerToManager.println(dataString);
                   writerToManager.flush();
                   break;
 
                 case "connection_request":
                   writerToManager.println(dataObject.getMessage());
-                  System.out.println("Agent -> Sends data to Manager: " + dataObject.getMessage());
+                  System.out.println("-- Agent -> -- Sends data to Manager: " + dataObject.getMessage());
                   writerToManager.flush();
                   break;
                 case "health_control_response":
                   if (Integer.parseInt(decodedData[5].split(":")[1]) >= 300) {
                     dataString = dataObject.getMessage().replace("service_to_agent", "agent_to_Manager");
-                    System.out.println("Agent -> Sends data to Manager: " + dataString);
+                    System.out.println("-- Agent -> -- Sends data to Manager: " + dataString);
                     writerToManager.println(dataString);
                     writerToManager.flush();
                   }
                   break;
                 case "process_data":
                   dataString = dataObject.getMessage().replace("Service_to_agent", "agent_to_Manager");
-                  System.out.println("Agent -> Sends data to Manager: " + dataString);
+                  System.out.println("-- Agent -> -- Sends data to Manager: " + dataString);
                   writerToManager.println(dataString);
                   writerToManager.flush();
                   break;
                 default:
-                  System.out.println("Agent -> Unknown request from Service: " + dataObject.getMessage());
+                  System.out.println("-- Agent -> -- Unknown request from Service: " + dataObject.getMessage());
                   break;
               }
             }
@@ -263,7 +289,7 @@ public class AgentToManagerConnectionThread extends Thread {
 
     checkBufferThread.start();
     handleListDataThread.start();
-    System.out.println("Agent -> Starts threads for receiving data");
+    System.out.println("-- Agent -> -- Starts threads for receiving data");
 
   }
 }

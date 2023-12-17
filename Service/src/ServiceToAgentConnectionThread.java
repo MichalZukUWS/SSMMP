@@ -17,6 +17,9 @@ public class ServiceToAgentConnectionThread extends Thread {
     private String args;
     private ArrayList<ServiceThread> threads;
     private String typeOfService;
+    private Thread processQueue;
+    private Thread processResponses;
+    // private boolean exit;
 
     public ServiceToAgentConnectionThread(
             LinkedList<String> requests,
@@ -32,6 +35,7 @@ public class ServiceToAgentConnectionThread extends Thread {
         readerFromAgent = new BufferedReader(new InputStreamReader(socketToAgent.getInputStream()));
         this.threads = threads;
         this.typeOfService = typeOfService;
+        // exit = false;
         start();
     }
 
@@ -53,37 +57,161 @@ public class ServiceToAgentConnectionThread extends Thread {
         // 5 -> socket_configuration:localhost_34022;
         // 6 -> plug_configuration:configuration of plugs
         String initialDataToSend = "type:execution_response;" + args.split(";")[1]
-                + ";socket_configuration:localhost_" + args.split(";")[5].split(":")[1].split("_")[1] + ";status:200";
-        System.out.println(typeOfService + " -> Sending registration data: " + initialDataToSend);
+                + ";status:200";
+        switch (typeOfService) {
+            case "Chat":
+                System.out.println(
+                        "|| " + typeOfService + " -> || Sending registration data: " + initialDataToSend);
+                break;
+            case "Login":
+                System.out.println(
+                        "__ " + typeOfService + " -> __ Sending registration data: " + initialDataToSend);
+                break;
+            case "File":
+                System.out.println(
+                        "++ " + typeOfService + " -> ++ Sending registration data: " + initialDataToSend);
+                break;
+            case "Post":
+                System.out.println(
+                        "@@ " + typeOfService + " -> @@ Sending registration data: " + initialDataToSend);
+                break;
+            case "Register":
+                System.out.println(
+                        "!! " + typeOfService + " -> !! Sending registration data: " + initialDataToSend);
+                break;
+        }
         writerToAgent.println(initialDataToSend);
         writerToAgent.flush();
 
-        Thread processQueue = new Thread(() -> {
+        processQueue = new Thread(() -> {
             while (!isInterrupted()) {
                 synchronized (requests) {
                     if (requests.size() != 0) {
                         String data = requests.poll();
                         requests.notify();
-                        System.out.println(typeOfService + " -> To the agent sent: " + data);
+                        switch (typeOfService) {
+                            case "Chat":
+                                System.out.println(
+                                        "|| " + typeOfService + " -> || To the agent sent: " + data);
+                                break;
+                            case "Login":
+                                System.out.println(
+                                        "__ " + typeOfService + " -> __ To the agent sent: " + data);
+                                break;
+                            case "File":
+                                System.out.println(
+                                        "++ " + typeOfService + " -> ++ To the agent sent: " + data);
+                                break;
+                            case "Post":
+                                System.out.println(
+                                        "@@ " + typeOfService + " -> @@ To the agent sent: " + data);
+                                break;
+                            case "Register":
+                                System.out.println(
+                                        "!! " + typeOfService + " -> !! To the agent sent: " + data);
+                                break;
+                        }
                         writerToAgent.println(data);
                         writerToAgent.flush();
                     }
                 }
             }
-            System.out.println(typeOfService + " -> Closed thread which is responsible for sending data to Agent.");
+            writerToAgent.close();
+            switch (typeOfService) {
+                case "Chat":
+                    System.out.println(
+                            "|| " + typeOfService
+                                    + " -> || Closed thread which is responsible for sending data to Agent.");
+                    break;
+                case "Login":
+                    System.out.println(
+                            "__ " + typeOfService
+                                    + " -> __ Closed thread which is responsible for sending data to Agent.");
+                    break;
+                case "File":
+                    System.out.println(
+                            "++ " + typeOfService
+                                    + " -> ++ Closed thread which is responsible for sending data to Agent.");
+                    break;
+                case "Post":
+                    System.out.println(
+                            "@@ " + typeOfService
+                                    + " -> @@ Closed thread which is responsible for sending data to Agent.");
+                    break;
+                case "Register":
+                    System.out.println(
+                            "!! " + typeOfService
+                                    + " -> !! Closed thread which is responsible for sending data to Agent.");
+                    break;
+            }
         });
 
-        Thread processResponses = new Thread(() -> {
+        processResponses = new Thread(() -> {
             while (!isInterrupted()) {
                 try {
                     String responseFromAgent = readerFromAgent.readLine();
-                    System.out.println(typeOfService + " -> From the agent received: " + responseFromAgent);
+                    switch (typeOfService) {
+                        case "Chat":
+                            System.out.println(
+                                    "|| " + typeOfService + " -> || From the agent received: " + responseFromAgent);
+                            break;
+                        case "Login":
+                            System.out.println(
+                                    "__ " + typeOfService + " -> __ From the agent received: " + responseFromAgent);
+                            break;
+                        case "File":
+                            System.out.println(
+                                    "++ " + typeOfService + " -> ++ From the agent received: " + responseFromAgent);
+                            break;
+                        case "Post":
+                            System.out.println(
+                                    "@@ " + typeOfService + " -> @@ From the agent received: " + responseFromAgent);
+                            break;
+                        case "Register":
+                            System.out.println(
+                                    "!! " + typeOfService + " -> !! From the agent received: " + responseFromAgent);
+                            break;
+                    }
                     if (!responseFromAgent.split(";")[0].split(":")[1].equalsIgnoreCase("health_control_request")) {
                         if (responseFromAgent.split(";")[0].split(":")[1]
                                 .equalsIgnoreCase("graceful_shutdown_request")) {
-                            System.out.println(typeOfService + " -> Received a request to close.");
-                            System.out.println(typeOfService + " -> Closing " + typeOfService + " threads.");
-                            threads.stream().forEach(t -> t.interrupt());
+                            switch (typeOfService) {
+                                case "Chat":
+                                    System.out.println(
+                                            "|| " + typeOfService + " -> || Received a request to close.");
+                                    System.out.println(
+                                            "|| " + typeOfService + " -> || Closing " + typeOfService + " threads.");
+                                    break;
+                                case "Login":
+                                    System.out.println(
+                                            "__ " + typeOfService + " -> __ Received a request to close.");
+                                    System.out.println(
+                                            "__ " + typeOfService + " -> __ Closing " + typeOfService + " threads.");
+                                    break;
+                                case "File":
+                                    System.out.println(
+                                            "++ " + typeOfService + " -> ++ Received a request to close.");
+                                    System.out.println(
+                                            "++ " + typeOfService + " -> ++ Closing " + typeOfService + " threads.");
+                                    break;
+                                case "Post":
+                                    System.out.println(
+                                            "@@ " + typeOfService + " -> @@ Received a request to close.");
+                                    System.out.println(
+                                            "@@ " + typeOfService + " -> @@ Closing " + typeOfService + " threads.");
+                                    break;
+                                case "Register":
+                                    System.out.println(
+                                            "!! " + typeOfService + " -> !! Received a request to close.");
+                                    System.out.println(
+                                            "!! " + typeOfService + " -> !! Closing " + typeOfService + " threads.");
+                                    break;
+                            }
+                            synchronized (threads) {
+                                threads.forEach(t -> t.interrupt());
+                                threads.notify();
+                            }
+                            Thread.sleep(2500);
                             synchronized (requests) {
                                 // TODO: send diffrent status code in case of failure
                                 requests.add("type:graceful_shutdown_response;message_id:"
@@ -91,36 +219,136 @@ public class ServiceToAgentConnectionThread extends Thread {
                                         + ";sub_type:Service_instance_to_agent;status:200");
                                 requests.notify();
                             }
-                            Thread.sleep(2000);
-                            System.out.println(typeOfService + " -> Closing application.");
+                            Thread.sleep(5000);
+                            // processQueue.interrupt();
+                            // processResponses.interrupt();
+                            switch (typeOfService) {
+                                case "Chat":
+                                    System.out.println(
+                                            "|| " + typeOfService + " -> || Closing application.");
+                                    break;
+                                case "Login":
+                                    System.out.println(
+                                            "__ " + typeOfService + " -> __ Closing application.");
+                                    break;
+                                case "File":
+                                    System.out.println(
+                                            "++ " + typeOfService + " -> ++ Closing application.");
+                                    break;
+                                case "Post":
+                                    System.out.println(
+                                            "@@ " + typeOfService + " -> @@ Closing application.");
+                                    break;
+                                case "Register":
+                                    System.out.println(
+                                            "!! " + typeOfService + " -> !! Closing application.");
+                                    break;
+                            }
                             System.exit(0);
+                            // System.out.println(typeOfService + " -> Closing application.");
+                            // System.exit(0);
                         } else {
-                            synchronized (responses) {
-                                responses.add(responseFromAgent);
-                                responses.notify();
+                            if (responseFromAgent.split(";")[0].split(":")[1]
+                                    .equalsIgnoreCase("source_service_session_close_request")) {
+                                // TODO: add to ServiceThread some informations and close only one connection
+                                synchronized (threads) {
+                                    threads.forEach(t -> t.closeConnectionWithBaaS(responseFromAgent));
+                                    threads.notify();
+                                }
+                            } else {
+                                synchronized (responses) {
+                                    responses.add(responseFromAgent);
+                                    responses.notify();
+                                }
                             }
                         }
 
                     } else {
-                        // TODO: replace serviceInstance
                         // TODO: actually check the status of the service
-                        String healthResponse = "type:health_control_response;message_id:10;sub_type:service_instance_to_agent;service_name:"
-                                + typeOfService + ";service_instance_id:i;status:200";
+                        String healthResponse = "type:health_control_response;message_id:"
+                                + responseFromAgent.split(";")[1].split(":")[1]
+                                + ";sub_type:service_instance_to_agent;service_name:"
+                                + typeOfService + ";service_instance_id:"
+                                + responseFromAgent.split(";")[4].split(":")[1] + ";status:200";
                         addRequestToAgent(healthResponse);
                     }
                 } catch (IOException e) {
-                    System.out.println(typeOfService + " Exception: " + e.getMessage());
+                    switch (typeOfService) {
+                        case "Chat":
+                            System.out.println("|| " + typeOfService + " -> || Exception: " + e.getMessage());
+                            break;
+                        case "Login":
+                            System.out.println("__ " + typeOfService + " -> __ Exception: " + e.getMessage());
+                            break;
+                        case "File":
+                            System.out.println("++ " + typeOfService + " -> ++ Exception: " + e.getMessage());
+                            break;
+                        case "Post":
+                            System.out.println("@@ " + typeOfService + " -> @@ Exception: " + e.getMessage());
+                            break;
+                        case "Register":
+                            System.out.println("!! " + typeOfService + " -> !! Exception: " + e.getMessage());
+                            break;
+                    }
                     e.printStackTrace();
                 } catch (InterruptedException e) {
-                    System.out.println(typeOfService + " Exception: " + e.getMessage());
+                    // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
             }
-            System.out.println(typeOfService + " -> Closed thread which is resposible for reading data from Agent.");
+            switch (typeOfService) {
+                case "Chat":
+                    System.out.println(
+                            "|| " + typeOfService
+                                    + " -> || Closed thread which is resposible for reading data from Agent.");
+                    break;
+                case "Login":
+                    System.out.println(
+                            "__ " + typeOfService
+                                    + " -> __ Closed thread which is resposible for reading data from Agent.");
+                    break;
+                case "File":
+                    System.out.println(
+                            "++ " + typeOfService
+                                    + " -> ++ Closed thread which is resposible for reading data from Agent.");
+                    break;
+                case "Post":
+                    System.out.println(
+                            "@@ " + typeOfService
+                                    + " -> @@ Closed thread which is resposible for reading data from Agent.");
+                    break;
+                case "Register":
+                    System.out.println(
+                            "!! " + typeOfService
+                                    + " -> !! Closed thread which is resposible for reading data from Agent.");
+                    break;
+            }
         });
 
         processQueue.start();
         processResponses.start();
+        // while (!isInterrupted()) {
+        // if (exit) {
+        // try {
+        // Thread.sleep(15000);
+        // processResponses.interrupt();
+        // processQueue.interrupt();
+        // System.out.println(typeOfService + " -> Closing application.");
+        // System.exit(0);
+        // } catch (InterruptedException e) {
+        // System.out.println(typeOfService + " -> Exception: " + e.getMessage());
+        // e.printStackTrace();
+        // }
+        // } else {
+        // try {
+        // Thread.sleep(10);
+        // } catch (InterruptedException e) {
+        // System.out.println(typeOfService + " -> Exception: " + e.getMessage());
+        // e.printStackTrace();
+        // }
+        // }
+        // }
+
     }
 
 }

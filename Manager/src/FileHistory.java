@@ -6,11 +6,21 @@ public class FileHistory {
     private ArrayList<String> history;
     private LocalDateTime lastUsedDateTime;
     private int serviceInstance;
+    private boolean isConnected;
 
     public FileHistory(int port, int serviceInstance) {
         this.port = port;
         this.serviceInstance = serviceInstance;
         history = new ArrayList<>();
+        isConnected = false;
+    }
+
+    public boolean isConnected() {
+        return isConnected;
+    }
+
+    public void setConnected(boolean isConnected) {
+        this.isConnected = isConnected;
     }
 
     public int getServiceInstance() {
@@ -38,7 +48,7 @@ public class FileHistory {
     }
 
     public void printHistory() {
-        System.out.println("////////////////////////////////////////////////////////");
+        System.out.println("\n////////////////////////////////////////////////////////");
         System.out.println("File History:");
         history.forEach(h -> System.out.println(h));
         System.out.println("////////////////////////////////////////////////////////");

@@ -43,10 +43,30 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
 
     }
 
+    // TODO: connect interrupt with closeConnectionWithService?
+    @Override
+    public void interrupt() {
+        System.out.println("Api Gateway -> Process closing connection with Service.");
+        // sending information about closing connection
+
+        String dataToAgent = "type:source_service_session_close_info;message_id:"
+                + 1
+                + ";sub_type:source_service_to_agent;source_service_name:Api Gateway;source_service_instance_network_address:localhost_"
+                + apiGatewayPort
+                + ";source_service_instance_id:1;source_plug_name:P;source_plug_port:"
+                + apiGatewayPort
+                + ";dest_service_name:" + nameOfService
+                + ";dest_service_instance_network_address:localhost_" + servicePort
+                + ";dest_socket_name:S;dest_socket_port:" + servicePort
+                + ";dest_socket_new_port:l";
+
+        apiGatewayToAgentConnectionThread.addRequestToAgent(dataToAgent);
+
+        threadsWithServices.remove(nameOfService);
+    }
+
     public void send(Socket socketFromClient, String data) throws IOException {
-        // TODO:: change to list with objects which contains data and socket to client,
-        // in
-        // this state posisible problems with high demand?
+        // TODO:: change to list with objects which contains data and socket to client, in this state posisible problems with high demand?
 
         // if request is from diffrent client have to change socket and writer to client
         if (this.socketFromClient != socketFromClient) {
@@ -59,6 +79,35 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
             requests.add(data);
             requests.notify();
         }
+    }
+
+    public void closeConnectionWithService(String message) {
+        System.out.println("Api Gateway -> Closing connection with: " + nameOfService + ".");
+        writerToService.close();
+        try {
+            readerFromService.close();
+            socketToService.close();
+        } catch (IOException e) {
+            System.out.println("Api Gateway Exception: " + e.getMessage());
+        }
+
+        // TODO: add some cheking maybe in catch thread?
+        String dataToAgent = "type:source_service_session_close_response;message_id:"
+                + message.split(";")[1].split(":")[1] + ";sub_type:source_Service_to_agent;status:200";
+        apiGatewayToAgentConnectionThread.addRequestToAgent(dataToAgent);
+
+        dataToAgent = "type:source_service_session_close_info;message_id:"
+                + 1
+                + ";sub_type:source_service_to_agent;source_service_name:Api Gateway;source_service_instance_network_address:localhost_"
+                + apiGatewayPort
+                + ";source_service_instance_id:1;source_plug_name:P;source_plug_port:"
+                + apiGatewayPort
+                + ";dest_service_name:" + nameOfService
+                + ";dest_service_instance_network_address:localhost_" + servicePort
+                + ";dest_socket_name:S;dest_socket_port:" + servicePort
+                + ";dest_socket_new_port:l";
+
+        apiGatewayToAgentConnectionThread.addRequestToAgent(dataToAgent);
     }
 
     @Override
@@ -163,10 +212,11 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
                     }
                 }
             } catch (IOException e) {
-                System.out.println(
-                        "Api Gateway Exception in thread which is responsible for checking connection to Service: "
-                                + e.getMessage());
-                e.printStackTrace();
+                // System.out.println(
+                // "Api Gateway Exception in thread which is responsible for checking connection
+                // to Service: "
+                // + e.getMessage());
+                // e.printStackTrace();
                 checkConnectionWithService.interrupt();
                 interrupt();
             }
@@ -202,9 +252,9 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
             System.out.println(
                     "Api Gateway Exception in thread which is resposible for sending and receiving data from Service: "
                             + e.getMessage());
-            e.printStackTrace();
-            interrupt();
+            // e.printStackTrace();
             checkConnectionWithService.interrupt();
+            interrupt();
         }
 
         // closing writers, readers and sockets
@@ -224,25 +274,25 @@ public class ApiGatewayToServiceConnectionThread extends Thread {
         } catch (IOException e) {
             System.out.println(
                     "Api Gateway Exception with closing writers, readers and sockets: " + e.getMessage());
-            e.printStackTrace();
+            // e.printStackTrace();
         }
 
-        // sending information about closing connection
+        // // sending information about closing connection
 
-        // TODO:: what about message_id ?
-        String dataToAgent = "type:source_service_session_close_info;message_id:"
-                + 10
-                + ";sub_type:source_service_to_agent;source_service_name:Api Gateway;source_service_instance_network_address:localhost_"
-                + apiGatewayPort
-                + ";source_service_instance_id:100;source_plug_name:P;source_plug_port:"
-                + apiGatewayPort
-                + ";dest_service_name:" + nameOfService
-                + ";dest_service_instance_network_address:localhost_" + servicePort
-                + ";dest_socket_name:S;dest_socket_port:" + servicePort
-                + ";dest_socket_new_port:l";
+        // String dataToAgent = "type:source_service_session_close_info;message_id:"
+        // + 1
+        // + ";sub_type:source_service_to_agent;source_service_name:Api
+        // Gateway;source_service_instance_network_address:localhost_"
+        // + apiGatewayPort
+        // + ";source_service_instance_id:100;source_plug_name:P;source_plug_port:"
+        // + apiGatewayPort
+        // + ";dest_service_name:" + nameOfService
+        // + ";dest_service_instance_network_address:localhost_" + servicePort
+        // + ";dest_socket_name:S;dest_socket_port:" + servicePort
+        // + ";dest_socket_new_port:l";
 
-        apiGatewayToAgentConnectionThread.addRequestToAgent(dataToAgent);
+        // apiGatewayToAgentConnectionThread.addRequestToAgent(dataToAgent);
 
-        threadsWithServices.remove(nameOfService);
+        // threadsWithServices.remove(nameOfService);
     }
 }

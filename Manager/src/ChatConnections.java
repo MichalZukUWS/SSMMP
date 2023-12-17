@@ -1,7 +1,7 @@
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 public class ChatConnections {
     private int numberOfServices;
@@ -22,9 +22,9 @@ public class ChatConnections {
     }
 
     public void addHistoryByPort(int port, String message) {
-        ChatHistory temp = historyList.stream().filter(s -> s.getPort() == port).findFirst().orElse(null);
-        if (temp != null)
-            temp.addToHistory(message);
+        Optional<ChatHistory> temp = historyList.stream().filter(s -> s.getPort() == port).findFirst();
+        if (temp.isPresent())
+            temp.get().addToHistory(message);
     }
 
     public boolean isServiceWithPort(int port) {
@@ -32,10 +32,10 @@ public class ChatConnections {
     }
 
     public void updateLastUsedService(int serviceInstance) {
-        ChatHistory temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
-                .orElse(null);
-        if (temp != null) {
-            temp.setLastUsedDateTime(LocalDateTime.now());
+        Optional<ChatHistory> temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance)
+                .findFirst();
+        if (temp.isPresent()) {
+            temp.get().setLastUsedDateTime(LocalDateTime.now());
         }
     }
 
@@ -43,17 +43,18 @@ public class ChatConnections {
 
         // go via historyList and find that object which have latest value in
         // lastUsedDateTime field
-        LocalDateTime temp = historyList.stream().map(k -> k.getLastUsedDateTime()).max(Comparator.naturalOrder())
-                .orElse(null);
-        if (temp != null) {
-            ChatHistory foo = historyList
+        Optional<LocalDateTime> temp = historyList.stream().map(k -> k.getLastUsedDateTime())
+                .max(Comparator.naturalOrder());
+
+        if (temp.isPresent()) {
+            Optional<ChatHistory> foo = historyList
                     .stream()
                     .filter(
-                            s -> s.getLastUsedDateTime().equals(temp))
-                    .findFirst()
-                    .orElse(null);
-            if (foo != null) {
-                return foo.getPort();
+                            s -> s.getLastUsedDateTime().equals(temp.get()))
+                    .findFirst();
+
+            if (foo.isPresent()) {
+                return foo.get().getPort();
             }
         }
 
@@ -69,9 +70,9 @@ public class ChatConnections {
     }
 
     public void printHistoryByPort(int port) {
-        ChatHistory temp = historyList.stream().filter(s -> s.getPort() == port).findFirst().orElse(null);
-        if (temp != null)
-            temp.printHistory();
+        Optional<ChatHistory> temp = historyList.stream().filter(s -> s.getPort() == port).findFirst();
+        if (temp.isPresent())
+            temp.get().printHistory();
     }
 
     public void printHistory() {
@@ -79,24 +80,38 @@ public class ChatConnections {
     }
 
     public void addHistoryByServiceInstance(int serviceInstance, String message) {
-        ChatHistory temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
-                .orElse(null);
-        if (temp != null)
-            temp.addToHistory(message);
+        Optional<ChatHistory> temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance)
+                .findFirst();
+
+        if (temp.isPresent())
+            temp.get().addToHistory(message);
     }
 
     public void printHistoryByServiceInstance(int serviceInstance) {
-        ChatHistory temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance).findFirst()
-                .orElse(null);
-        if (temp != null)
-            temp.printHistory();
+        Optional<ChatHistory> temp = historyList.stream().filter(s -> s.getServiceInstance() == serviceInstance)
+                .findFirst();
+
+        if (temp.isPresent())
+            temp.get().printHistory();
     }
 
-    // TODO:: change to instance
     public void removeFromHistoryByPort(int port) {
-        historyList = historyList.stream().filter(h -> h.getPort() != port)
-                .collect(Collectors.toCollection(ArrayList::new));
+        historyList.removeIf(h -> h.getPort() == port);
 
         numberOfServices = historyList.size();
+    }
+
+    public void removeFromHistoryByServiceInstance(int serviceInstance) {
+        historyList.removeIf(h -> h.getServiceInstance() == serviceInstance);
+
+        numberOfServices = historyList.size();
+    }
+
+    public void setConnectedByPort(int port, boolean isConnected) {
+        Optional<ChatHistory> temp = historyList.stream().filter(h -> h.getPort() == port).findFirst();
+        if (temp.isPresent()) {
+            temp.get().setConnected(isConnected);
+        }
+
     }
 }

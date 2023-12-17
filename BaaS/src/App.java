@@ -5,7 +5,7 @@ public class App {
         try {
             new BaaS().runServer(args[0]);
         } catch (IOException e) {
-            System.out.println("BaaS Exception: " + e.getMessage());
+            System.out.println("** BaaS -> ** Exception: " + e.getMessage());
             e.printStackTrace();
         }
     }

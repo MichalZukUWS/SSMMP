@@ -1,15 +1,10 @@
+import java.util.ArrayList;
 
 public class AgentCheckServiceHealthThread extends Thread {
-    private ServiceToAgentConnectionThread serviceToAgentConnectionThread;
-    private String request;
+    private ArrayList<ServiceConnectionWithAgentEntry> serivcePorts;
 
-    // TODO: get serviceName and serviceInstance
-    public AgentCheckServiceHealthThread(ServiceToAgentConnectionThread serviceToAgentConnectionThread,
-            String serviceName, int serviceInstance) {
-        this.serviceToAgentConnectionThread = serviceToAgentConnectionThread;
-        // TODO: what about message_id?
-        request = "type:health_control_request;message_id:10;sub_type:agent_to_service_instance;service_name:"
-                + serviceName + ";service_instance_id:" + serviceInstance + "";
+    public AgentCheckServiceHealthThread(ArrayList<ServiceConnectionWithAgentEntry> serivcePorts) {
+        this.serivcePorts = serivcePorts;
         start();
     }
 
@@ -17,8 +12,17 @@ public class AgentCheckServiceHealthThread extends Thread {
     public void run() {
         while (!isInterrupted()) {
             try {
-                Thread.sleep(10000);
-                serviceToAgentConnectionThread.addRequestToService(request);
+                Thread.sleep(20000);
+                synchronized (serivcePorts) {
+                    serivcePorts.forEach(s -> s.getServiceToAgentConnectionThread()
+                            .addRequestToService(
+                                    "type:health_control_request;message_id:" + s.getServiceInstance()
+                                            + ";sub_type:agent_to_service_instance;service_name:"
+                                            + s.getTypeOfService() + ";service_instance_id:"
+                                            + s.getServiceInstance() + ""));
+                    serivcePorts.notify();
+                }
+
             } catch (InterruptedException e) {
                 System.out.println("Agent Exception: " + e.getMessage());
                 e.printStackTrace();

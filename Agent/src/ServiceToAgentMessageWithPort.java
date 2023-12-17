@@ -1,11 +1,11 @@
 public class ServiceToAgentMessageWithPort {
     private String message;
     private int message_id;
-    private ServiceToAgentConnectionThread serviceToAgentConnectionThread;
+    private AgentToServiceConnectionThread serviceToAgentConnectionThread;
 
     public ServiceToAgentMessageWithPort(String message,
             int message_id,
-            ServiceToAgentConnectionThread serviceToAgentConnectionThread) {
+            AgentToServiceConnectionThread serviceToAgentConnectionThread) {
 
         this.message = message;
         this.message_id = message_id;
@@ -20,7 +20,7 @@ public class ServiceToAgentMessageWithPort {
         return message;
     }
 
-    public ServiceToAgentConnectionThread getServiceToAgentConnectionThread() {
+    public AgentToServiceConnectionThread getServiceToAgentConnectionThread() {
         return serviceToAgentConnectionThread;
     }
 }

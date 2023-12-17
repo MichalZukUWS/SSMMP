@@ -13,10 +13,10 @@ public class ApiGateway {
         System.out.println("Api Gateway run... on port " + startPort);
         LinkedList<String> requests = new LinkedList<>();
         LinkedList<String> responses = new LinkedList<>();
+        HashMap<String, ApiGatewayToServiceConnectionThread> threadsWithServices = new HashMap<>();
         ApiGatewayToAgentConnectionThread serviceToAgentConnectionThread = new ApiGatewayToAgentConnectionThread(
                 requests,
-                responses);
-        HashMap<String, ApiGatewayToServiceConnectionThread> threadsWithServices = new HashMap<>();
+                responses, startPort, threadsWithServices);
         while (true) {
             Socket socket = serverSocket.accept();
             System.out.println("Api Gateway -> New Connection");
