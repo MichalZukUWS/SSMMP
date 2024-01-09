@@ -10,13 +10,12 @@ public class Manager {
         ServerSocket serverSocket = new ServerSocket(startPort);
         System.out.println("Manager port: " + startPort);
         LinkedList<String> requests = new LinkedList<>();
+        ServicesConnections connections = new ServicesConnections();
         while (true) {
             // after new connection with agent add new Thread to process requests and
             // responses
             Socket socket = serverSocket.accept();
-            // startPort + X using in testing phase when isn't implemented closing processes
-            // with Services
-            new AgentToManagerConnectionThread(socket, startPort + 480, requests);
+            new AgentToManagerConnectionThread(socket, startPort + 140, requests, connections);
         }
     }
 }
